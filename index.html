@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>gladhand dockyard v11</title>
+<title>gladhand dockyard v12</title>
 <!--
 RED PHONE: trailer backing sim v5
 RED PHONE: v4 written on the Red phone in chat with Claude Opus 5.5, Oct 11 2026 (single van, dock yard, inspection, air lines, magnetic coupling)
@@ -30,6 +30,8 @@ BLUE PHONE: a fuel island, a truck scale, truck parking, more traffic, more fork
 BLUE PHONE: v11 adds: the City, an open street grid with working signals, telephone poles and wires that come down when hit,
 BLUE PHONE: power outages that flash the lights, trees, hydrants that geyser, houses, downtown towers, a park, a gas station,
 BLUE PHONE: parked cars you can shove, city traffic on random routes, pedestrians on crosswalks, and a warehouse to deliver to
+BLUE PHONE: v12 adds: buildings, houses, containers, boxcars, parked trailers and towers take holes you can ram through, the outer berm dents,
+BLUE PHONE: a breakable block wall rings every map inside the berm, and detailed vehicles in the driver view
 -->
 <style>
 /* RED PHONE: palette from the truck yard. light concrete panels, safety yellow, DOT red, glad hand blue. no dark backgrounds */
@@ -485,11 +487,11 @@ function pothole(cx,cy,r){for(let y=Math.floor(cy-r);y<=Math.ceil(cy+r);y++)for(
   if(d<1-hsh(x,y)/400&&(s===S_ASP||s===S_CON||s===S_GRV||s===S_WET))surf[i]=S_POT;}}
 function surfAt(x,y){if(MAP&&MAP.proc)return hwSurf(x,y);const ix=Math.floor(x),iy=Math.floor(y);if(ix<0||iy<0||ix>=W||iy>=H)return S_DES;return surf[iy*W+ix];}
 // BLUE PHONE: how much hit each kind of structure takes before it breaks open. anything not listed never breaks
-const BRK={wall:18,rail:45,pole:18,sign:8,shack:60,dock:30,pallet:6,debrisH:4,board:25,pump:15,tpole:10,tree:26,hydrant:3,sig:14};
+const BRK={block:18,wall:18,rail:45,pole:18,sign:8,shack:60,dock:30,pallet:6,debrisH:4,board:25,pump:15,tpole:10,tree:26,hydrant:3,sig:14};
 function addOb(x,y,w,h,type,label,tall){OBST.push({id:'o'+(oid++),type,label,tall:!!tall,cx:x+w/2,cy:y+h/2,ang:0,hl:w/2,hw:h/2,hp:BRK[type]||9999});}
 function ob(x,y,w,h,type,label,tall){
   // BLUE PHONE: long fences and rails split into short panels so a crash breaks one panel, not the whole line
-  if((type==='wall'||type==='rail')&&Math.max(w,h)>16){const n=Math.ceil(Math.max(w,h)/12);
+  if((type==='wall'||type==='rail'||type==='block')&&Math.max(w,h)>16){const n=Math.ceil(Math.max(w,h)/12);
     for(let i=0;i<n;i++){if(w>=h)addOb(x+w*i/n,y,w/n,h,type,label,tall);else addOb(x,y+h*i/n,w,h/n,type,label,tall);}return;}
   addOb(x,y,w,h,type,label,tall);
 }
@@ -789,7 +791,7 @@ function findHit(s){
   const moving=[{b:T.full,ui:-1}];
   if(s.coupled)for(const c of ch)for(const b of unitBoxes(c))moving.push({b,ui:c.i});
   for(const o of OBST)for(const m of moving){const b=m.b;if(b.high&&!o.tall)continue;
-    if(near(b,o)&&obbHit(b,o)){if(o.hp<9999&&isBroken(o))break;return{o,isTrl:m.ui>=0,b,ui:m.ui};}}
+    if(near(b,o)&&obbHit(b,o)){if(o.hp<9999&&isBroken(o))break;if(BREACH[o.type]&&passHoles(o,b))continue;return{o,isTrl:m.ui>=0,b,ui:m.ui};}}
   if(!s.coupled){
     const Tr={id:'dt',type:'trailer',label:'trailer'},c0=ch[0];
     const ahead=(s.x-c0.hx)*c0.c+(s.y-c0.hy)*c0.s,lined=Math.abs(normA(s.th-c0.ph))<.52;
@@ -902,7 +904,9 @@ function money(n){n=Math.round(n||0);return n>=1e6?'$'+(n/1e6).toFixed(1)+'M':n>
 function addBerms(){const B=30;
   // BLUE PHONE: dirt berm past the fence line so a truck that busts out of the map stops in the desert
   addOb(-B-4,-B-4,W+2*B+8,4,'berm','dirt berm',false);addOb(-B-4,H+B,W+2*B+8,4,'berm','dirt berm',false);
-  addOb(-B-4,-B,4,H+2*B,'berm','dirt berm',false);addOb(W+B,-B,4,H+2*B,'berm','dirt berm',false);}
+  addOb(-B-4,-B,4,H+2*B,'berm','dirt berm',false);addOb(W+B,-B,4,H+2*B,'berm','dirt berm',false);
+  // BLUE PHONE: block wall inside the berm, made to be smashed
+  ob(-16,-16,W+32,2,'block','block wall',1);ob(-16,H+14,W+32,2,'block','block wall',1);ob(-16,-14,2,H+28,'block','block wall',1);ob(W+14,-14,2,H+28,'block','block wall',1);}
 function closestOBB(B,px,py){const c=Math.cos(B.ang),s=Math.sin(B.ang),dx=px-B.cx,dy=py-B.cy;
   const u=clamp(dx*c+dy*s,-B.hl,B.hl),v=clamp(-dx*s+dy*c,-B.hw,B.hw);return[B.cx+u*c-v*s,B.cy+u*s+v*c];}
 function addDent(arr,ox,oy,ang,cx,cy,E){const c=Math.cos(ang),s=Math.sin(ang),dx=cx-ox,dy=cy-oy;
@@ -958,7 +962,7 @@ function cabColor(T,p1,p2){return(f,l,fe)=>{
     case 'heavy':return(f<T.cab+6||(f<fe-1&&a<1.2))?p2:p1;}
   return p1;};}
 function boxColor(u){const hw=u.w/2,rr=u.kp-u.len;return(f,l)=>(Math.abs(l)>hw-.5||f>u.kp-.5||f<rr+.5)?PAL.trlEdge:(f<rr+1.1?PAL.trlDoor:PAL.trl);}
-const OB_SOFT={house:1,container:.6,railcar:.4,wall:1.6,rail:1.1,dock:.8,parked:1,shack:1.3,building:.6,tower:.25};
+const OB_SOFT={block:1.2,berm:1,house:1,container:.6,railcar:.4,wall:1.6,rail:1.1,dock:.8,parked:1,shack:1.3,building:.6,tower:.25};
 // BLUE PHONE: dents and caved in faces on structures. thin things like fence panels bend and get shoved instead
 function rectW(x0,x1,y0,y1,c){if(x1>x0&&y1>y0)fillOBB((x0+x1)/2,(y0+y1)/2,0,(x1-x0)/2,(y1-y0)/2,c);}
 function drawObCrush(o,cr,sc){
@@ -975,8 +979,8 @@ function drawObCrush(o,cr,sc){
   for(const i in cr.R){const d=cr.R[i]*sc;if(d<.05)continue;const a=x0+ +i,b=Math.min(x1,a+1);
     if(thin){rectW(a,b,y0,y1,gc(a,y0-1));rectW(a,b,y0-d,y1-d,piece);}else{rectW(a,b,y1-d,y1,gc(a+.5,y1-d/2));rectW(a,b,y1-d-.6,y1-d,PAL.dent);}}
 }
-const BASE$={tpole:4500,tree:1200,hydrant:2500,sig:6000,house:3000,container:4000,railcar:6000,pump:8000,pallet:150,board:3000,debrisH:0,building:2400,tower:9000,parked:1800,shack:1500,dock:1200,wall:350,rail:900,pole:700,sign:250};
-const MAT={tpole:['poleW','wire'],tree:['treeA','treeB','poleW'],hydrant:['hydr','signW','wet'],sig:['sigH','sigG','sigY'],house:['side','glass','roof'],container:['ctrR','ctrB','ctrO'],railcar:['railcar','frame'],pump:['signW','stopR','glass'],pallet:['wood','palletL'],debrisH:['tire','rubble'],board:['frame','amber'],wall:['fence','pole'],building:['roof','roofEdge','hvac','door'],dock:['dockB','door'],pole:['wood','pole'],sign:['sign','pole','wood'],
+const BASE$={block:600,berm:150,tpole:4500,tree:1200,hydrant:2500,sig:6000,house:3000,container:4000,railcar:6000,pump:8000,pallet:150,board:3000,debrisH:0,building:2400,tower:9000,parked:1800,shack:1500,dock:1200,wall:350,rail:900,pole:700,sign:250};
+const MAT={block:['concrete','concrete2','rubble'],tpole:['poleW','wire'],tree:['treeA','treeB','poleW'],hydrant:['hydr','signW','wet'],sig:['sigH','sigG','sigY'],house:['side','glass','roof'],container:['ctrR','ctrB','ctrO'],railcar:['railcar','frame'],pump:['signW','stopR','glass'],pallet:['wood','palletL'],debrisH:['tire','rubble'],board:['frame','amber'],wall:['fence','pole'],building:['roof','roofEdge','hvac','door'],dock:['dockB','door'],pole:['wood','pole'],sign:['sign','pole','wood'],
   shack:['shack','shackE','glass'],parked:['parked','parkedE','trlTire'],tower:['tower','tower2'],rail:['rail','concrete'],berm:['soft','soft2','dirt'],
   trailer:['trl','trlEdge'],legs:['leg','frame']};
 // BLUE PHONE: impact energy grows with the square of speed and with the weight of the rig
@@ -987,12 +991,13 @@ function crash(hit,mph,extra){
   if(mph<3){const ck='cr'+o.id;if(G.cool[ck]&&now()<G.cool[ck])return false;G.cool[ck]=now()+.8;}
   const geo=o.cx!=null?o:hit.ob,[cx,cy]=hit.cx!=null?[hit.cx,hit.cy]:closestOBB(geo,b.cx,b.cy);
   const w=weights(),mf=Math.min(2.5,w.gvw/40000),E=hit.E!=null?hit.E:mph*mph/4*mf;
-  const prop=o.type!=='trailer'&&o.type!=='legs'&&o.type!=='berm'&&o.type!=='vehicle',st=dstore(),T=tnow();let broke=false;
+  const prop=o.type!=='trailer'&&o.type!=='legs'&&o.type!=='vehicle',st=dstore(),T=tnow();let broke=false;
   if(prop&&o.hp<9999){const nd=obsDmg(o)+E,old=st.obs[o.id];st.obs[o.id]={d:Math.round(nd*10)/10,t:T};if(old&&old.fa!=null)st.obs[o.id].fa=old.fa;
     if(nd>=o.hp){broke=true;if(st.obs[o.id].fa==null){const vh=G.s.th+(G.s.v<0?Math.PI:0)+(Math.random()-.5)*.5;st.obs[o.id].fa=Math.round(normA(vh)*100)/100;}
       if(o.type==='tpole'&&!old)setTimeout(()=>msg('Pole down. The lights just went out at the nearest intersection',3),700);if(o.type==='hydrant')setTimeout(()=>msg('Hydrant sheared off. Water everywhere',2.5),700);}}
+  if(prop&&!broke&&BREACH[o.type]&&mph>=3&&E>=BREACH[o.type]&&!MAP.proc)broke=breach(o,b,E);
   if(prop&&!MAP.proc){addMark(cx,cy,E,o);st.cost+=Math.round((BASE$[o.type]||500)*(.4+E/20));}
-  const solidK=broke?.7:(o.type==='building'||o.type==='tower'||o.type==='berm'?1.3:o.type==='sign'?.3:1);
+  const solidK=broke?(BREACH[o.type]?.45:.7):(o.type==='building'||o.type==='tower'||o.type==='berm'?1.3:o.type==='sign'?.3:1);
   const td=(hit.E!=null?hit.E*(.6+.4*Math.min(2,mf))/Math.max(.3,mf):100*Math.pow(mph/20,2)*(.6+.4*Math.min(2,mf)))*solidK*(extra?.5:1);
   // BLUE PHONE: both bodies give. the truck crushes more against hard things, the thing it hit crushes by how soft it is
   const hard=o.type==='building'||o.type==='tower'||o.type==='berm',dV=(.3+Math.sqrt(E)*.6)*(hard?1.2:broke?.6:1);
@@ -1057,9 +1062,10 @@ function speck(x0,y0,x1,y1,dens,cx,cy,rad){
 }
 function drawScars(){
   const st=dstore(),T=tnow();
+  for(const o of OBST){if(o.type==='berm')fillOBB(o.cx,o.cy,0,o.hl,o.hw,PAL.soft2);else if(o.type==='block'&&!isBroken(o)){fillOBB(o.cx,o.cy,0,o.hl,o.hw,PAL.concrete2);fillOBB(o.cx,o.cy,0,Math.max(.1,o.hl-.4),Math.max(.1,o.hw-.4),PAL.concrete);}}
   for(const id in st.crush){const o=OBI[id],oc=st.crush[id];if(!o)continue;const p=(T-oc.t)/repairSecs(oc.d);if(p<1)drawObCrush(o,oc,1-p);}
   for(const o of OBST){
-    if(o.type==='berm'){fillOBB(o.cx,o.cy,0,o.hl,o.hw,PAL.soft2);continue;}
+    if(o.type==='berm')continue;
     if(o.hp>=9999)continue;const r=st.obs[o.id];if(!r)continue;const p=(T-r.t)/repairSecs(r.d);if(p>=1)continue;
     if(r.d>=o.hp&&p<.5){
       fillOBB(o.cx,o.cy,0,o.hl,o.hw,groundAt(o.cx,o.cy));speck(o.cx-o.hl,o.cy-o.hw,o.cx+o.hl,o.cy+o.hw,o.type==='shack'?.45:.25);
@@ -1739,7 +1745,7 @@ function drawMiniHw(){
 const fpC=$('fp'),fpX=fpC.getContext('2d'),fpLo=document.createElement('canvas'),fpL=fpLo.getContext('2d');
 const fmC=[document.createElement('canvas'),document.createElement('canvas')],fmX=fmC.map(c=>c.getContext('2d'));
 let FP={W:0,H:0,img:null,buf:null,mW:0,mH:0,mImg:[null,null],mBuf:[null,null],shown:false};
-const OBH={tpole:30,tree:8,hydrant:2.6,sig:18,house:16,building:32,parked:13.5,shack:10,pole:28,sign:7,tower:220,rail:3.2,wall:7,dock:4.5,pallet:5,debrisH:.9,board:9,berm:4,container:8.6,railcar:15,pump:6};
+const OBH={block:8,tpole:30,tree:8,hydrant:2.6,sig:18,house:16,building:32,parked:13.5,shack:10,pole:28,sign:7,tower:220,rail:3.2,wall:7,dock:4.5,pallet:5,debrisH:.9,board:9,berm:4,container:8.6,railcar:15,pump:6};
 const HV={sedan:4.8,suv:6,pickup:6.2,van:7.5,box:11,semi:11,moto:4,police:5,amb:9,fork:7,rig:11};
 const HAZE=col('#e7e3d9'),SKY0=col('#bcd6ea'),SKY1=col('#eef1ee'),HILL=col('#cdbfae');
 const CSSC=new Map();
@@ -1784,14 +1790,13 @@ function fpCollect(cx,cy,R){
   const L=[],add=(b,z0,z1,c,top)=>{L.push({cx:b.cx,cy:b.cy,ang:b.ang||0,hl:b.hl,hw:b.hw,z0,z1,c,top:top||c});};
   const nearB=b=>Math.abs(b.cx-cx)<R+b.hl+b.hw&&Math.abs(b.cy-cy)<R+b.hl+b.hw;
   for(const o of OBST){if(!nearB(o))continue;if(o.hp<9999&&isBroken(o))continue;const h=o.h||OBH[o.type]||6;
-    const c=o.col!=null?o.col:o.type==='tpole'||o.type==='tree'?PAL.poleW:o.type==='hydrant'?PAL.hydr:o.type==='sig'?PAL.sigH:o.type==='building'?col('#d6d0c2'):o.type==='parked'?PAL.trl:o.type==='shack'?PAL.shack:o.type==='pole'?PAL.pole:o.type==='sign'?PAL.sign:
+    const c=o.col!=null?o.col:o.type==='tpole'||o.type==='tree'?PAL.poleW:o.type==='hydrant'?PAL.hydr:o.type==='sig'?PAL.sigH:o.type==='block'?PAL.concrete2:o.type==='building'?col('#d6d0c2'):o.type==='parked'?PAL.trl:o.type==='shack'?PAL.shack:o.type==='pole'?PAL.pole:o.type==='sign'?PAL.sign:
       o.type==='tower'?PAL.tower2:o.type==='rail'?PAL.rail:o.type==='wall'?PAL.fence:o.type==='dock'?PAL.dockB:o.type==='pallet'?PAL.wood:o.type==='berm'?PAL.soft2:
       o.type==='pump'?PAL.signW:o.mat?o.mat[0]:PAL.concrete;
     add(o,0,h,c,o.roof?col(o.roof):o.type==='building'?PAL.roof:null);}
   for(const d of DOORS){const dir=d.dir||1,y=(d.y||51.2)-dir*1.35;if(Math.abs(d.x-cx)>R||Math.abs(y-cy)>R)continue;add({cx:d.x,cy:y,hl:5,hw:.2},0,12,G.target===d&&Math.floor(now()*2)%2?PAL.yellow||PAL.lineY:PAL.door);}
   for(const c of cones)if(Math.abs(c.x-cx)<R&&Math.abs(c.y-cy)<R)add({cx:c.x,cy:c.y,ang:c.ang,hl:c.knock?1:.6,hw:c.knock?.5:.6},0,c.knock?.8:2.4,PAL.cone);
-  for(const n of NPCS){if(Math.abs(n.x-cx)>R||Math.abs(n.y-cy)>R)continue;const bs=nBoxes(n),h=HV[n.type]||6;
-    bs.forEach(b=>{const trl=b.part===1;add(b,trl?1.2:0,trl?13.5:h,trl?(n.tc||PAL.trl):(n.c1||PAL.trl),trl?PAL.trl:(n.c2||n.c1));});}
+  for(const n of NPCS){if(Math.abs(n.x-cx)>R||Math.abs(n.y-cy)>R)continue;fpVehicle(add,n);}
   for(const p of PEDS)if(Math.abs(p.x-cx)<R&&Math.abs(p.y-cy)<R){const body=p.vest?(p.vest==='o'?PAL.vestO:PAL.vestY):col(p.shirt);
     add({cx:p.x,cy:p.y,ang:p.th,hl:.45,hw:.9},0,5.2,body);add({cx:p.x,cy:p.y,ang:p.th,hl:.4,hw:.4},5.2,6.1,p.hat?col(p.hat):col(p.hair));}
   for(const w of dstore().wrecks){if(w.run===G.runId||Math.abs(w.x-cx)>R||Math.abs(w.y-cy)>R)continue;add(box(w.x,w.y,w.th,w.tail,w.bumper,w.half),0,9,PAL.wreck);}
@@ -2095,6 +2100,92 @@ function cityFp(add,cx,cy,R){
   for(const k in CITY.nodes){const n=CITY.nodes[k];if(Math.abs(n.x-cx)>R||Math.abs(n.y-cy)>R)continue;
     for(const d of CDIRS){if(!cNbr(n,[-d[0],-d[1]]))continue;const r=rn(d),stt=cLight(n,d[0]?'EW':'NS');
       add({cx:n.x+d[0]*(CRW+1)+r[0]*9,cy:n.y+d[1]*(CRW+1)+r[1]*9,ang:Math.atan2(d[1],d[0]),hl:.6,hw:1.2},15,18.5,cLightCol(stt));}}
+}
+
+
+// =====================================================================
+// BLUE PHONE: breaching. big things that used to be solid forever (buildings, houses, containers, boxcars, parked trailers,
+// BLUE PHONE: towers) now take holes. a hard enough hit punches a hole at the impact, and ramming the same hole again bores it deeper
+// BLUE PHONE: until the rig comes out the other side. holes are saved per map and rebuilt by the crews like everything else
+// =====================================================================
+const BREACH={building:10,house:7,container:8,railcar:12,parked:7,tower:30,store:10};
+function obHoles(o){const st=dstore(),L=st.holes&&st.holes[o.id];if(!L)return null;const T=tnow(),a=L.filter(h=>(T-h.t)/repairSecs(h.d)<.5);return a.length?a:null;}
+function inHole(L,x,y){for(const h of L)if(x>h.x0-.3&&x<h.x1+.3&&y>h.y0-.3&&y<h.y1+.3)return true;return false;}
+// BLUE PHONE: a body passes if every sample point of it that lands inside the structure also lands inside a hole
+function passHoles(o,b){const L=obHoles(o);if(!L)return false;const c=Math.cos(b.ang),s=Math.sin(b.ang),x0=o.cx-o.hl,x1=o.cx+o.hl,y0=o.cy-o.hw,y1=o.cy+o.hw;
+  let any=false;const nf=Math.max(2,Math.ceil(b.hl*2/3));
+  for(let i=0;i<=nf;i++){const f=-b.hl+2*b.hl*i/nf;for(const l of[-b.hw,0,b.hw]){const x=b.cx+c*f-s*l,y=b.cy+s*f+c*l;
+    if(x<x0||x>x1||y<y0||y>y1)continue;any=true;if(!inHole(L,x,y))return false;}}
+  return any;}
+function breach(o,b,E){
+  const st=dstore();st.holes=st.holes||{};const L=st.holes[o.id]||(st.holes[o.id]=[]),T=tnow();
+  const s=G.s,sg=s.v<0?-1:1;let dx=Math.cos(b.ang),dy=Math.sin(b.ang);const vx=Math.cos(s.th)*sg,vy=Math.sin(s.th)*sg;if(dx*vx+dy*vy<0){dx=-dx;dy=-dy;}
+  const x0=o.cx-o.hl,x1=o.cx+o.hl,y0=o.cy-o.hw,y1=o.cy+o.hw;
+  let px=clamp(b.cx+dx*b.hl,x0,x1),py=clamp(b.cy+dy*b.hl,y0,y1);
+  const depth=clamp(2+E/7,2,16),half=clamp(b.hw+1.2,3,6.5);
+  const act=L.filter(h=>(T-h.t)/repairSecs(h.d)<.5);
+  let best=null,bd=1e9;for(const h of act){const qx=clamp(px,h.x0,h.x1),qy=clamp(py,h.y0,h.y1),d=Math.hypot(px-qx,py-qy);if(d<bd){bd=d;best=h;}}
+  if(best&&bd<9){const h=best;
+    if(h.nx>0)h.x1=Math.min(x1,Math.max(h.x1,px)+depth);if(h.nx<0)h.x0=Math.max(x0,Math.min(h.x0,px)-depth);
+    if(h.ny>0)h.y1=Math.min(y1,Math.max(h.y1,py)+depth);if(h.ny<0)h.y0=Math.max(y0,Math.min(h.y0,py)-depth);
+    if(h.nx){h.y0=Math.max(y0,Math.min(h.y0,py-half));h.y1=Math.min(y1,Math.max(h.y1,py+half));}else{h.x0=Math.max(x0,Math.min(h.x0,px-half));h.x1=Math.min(x1,Math.max(h.x1,px+half));}
+    h.t=T;h.d=Math.round((h.d+E)*10)/10;}
+  else{const dl=px-x0,dr=x1-px,dt=py-y0,db=y1-py,m=Math.min(dl,dr,dt,db);let h;
+    if(m===dl)h={x0,x1:Math.min(x1,x0+depth),y0:Math.max(y0,py-half),y1:Math.min(y1,py+half),nx:1,ny:0};
+    else if(m===dr)h={x0:Math.max(x0,x1-depth),x1,y0:Math.max(y0,py-half),y1:Math.min(y1,py+half),nx:-1,ny:0};
+    else if(m===dt)h={x0:Math.max(x0,px-half),x1:Math.min(x1,px+half),y0,y1:Math.min(y1,y0+depth),nx:0,ny:1};
+    else h={x0:Math.max(x0,px-half),x1:Math.min(x1,px+half),y0:Math.max(y0,y1-depth),y1,nx:0,ny:-1};
+    h.t=T;h.d=Math.round(E*10)/10;L.push(h);if(L.length>16)L.shift();
+    if(nDist({x:px,y:py})<200)setTimeout(()=>msg('Busted through the '+o.label,2.2),300);}
+  for(const h of L)for(const k of['x0','x1','y0','y1'])h[k]=Math.round(h[k]*10)/10;
+  st.cost+=Math.round((BASE$[o.type]||800)*(.5+E/15));G.dirty=true;
+  return true;
+}
+function drawHoles(){const st=dstore();if(!st.holes)return;const T=tnow(),X0=G.camX-300,X1=G.camX+300,Y0=G.camY-460,Y1=G.camY+460;
+  for(const id in st.holes){const o=OBI[id];if(!o||o.cx+o.hl<X0||o.cx-o.hl>X1||o.cy+o.hw<Y0||o.cy-o.hw>Y1)continue;
+    for(const h of st.holes[id]){const p=(T-h.t)/repairSecs(h.d);if(p>=1)continue;
+      if(p<.5){fillOBB((h.x0+h.x1)/2,(h.y0+h.y1)/2,0,(h.x1-h.x0)/2+.5,(h.y1-h.y0)/2+.5,PAL.dent);fillOBB((h.x0+h.x1)/2,(h.y0+h.y1)/2,0,(h.x1-h.x0)/2,(h.y1-h.y0)/2,PAL.concrete2);
+        speck(h.x0,h.y0,h.x1,h.y1,.55);}
+      else{fillOBB((h.x0+h.x1)/2,(h.y0+h.y1)/2,0,(h.x1-h.x0)/2,(h.y1-h.y0)/2,PAL.newFence);}}}}
+
+// =====================================================================
+// BLUE PHONE: first person vehicle models. wheels, body, glass, roof, bumpers, head and tail lights, light bars, beds, boxes
+// =====================================================================
+function fpVehicle(add,n){
+  const dark=n.dead?.55:1,c1=n.dead?PAL.wreck:(n.c1||PAL.trl),c2=n.dead?PAL.wreck2:(n.c2||c1),gl=PAL.glass,tire=PAL.tire,bl=n.brake?PAL.brakeL:PAL.brakeD,hd=PAL.headL;
+  const box=(ox,oy,a)=>(f0,f1,l0,l1,z0,z1,c,top)=>{const fm=(f0+f1)/2,lm=(l0+l1)/2,ca=Math.cos(a),sa=Math.sin(a);add({cx:ox+ca*fm-sa*lm,cy:oy+sa*fm+ca*lm,ang:a,hl:Math.max(.05,(f1-f0)/2),hw:Math.max(.05,(l1-l0)/2)},z0,z1,c,top);};
+  const wheels=(P,fs,w,r)=>{for(const f of fs)for(const sd of[-1,1])P(f-r,f+r,sd*w-.45,sd*w+.45,0,r*1.6,tire);};
+  const lights=(P,L,Wd,z)=>{for(const sd of[-1,1]){P(-L-.12,-L+.05,sd*(Wd-1.1)-.55,sd*(Wd-1.1)+.55,z,z+.8,bl);P(L-.05,L+.12,sd*(Wd-1.1)-.55,sd*(Wd-1.1)+.55,z-.2,z+.5,hd);}};
+  if(n.kind==='rig'){const T=n.T,u=n.u,P=box(n.x,n.y,n.th),hx=n.x+Math.cos(n.th)*T.a,hy=n.y+Math.sin(n.th)*T.a,Q=box(hx,hy,n.ph),rr=u.kp-u.len;
+    wheels(P,[T.L,2.1,-2.1],3.6,1.6);P(T.tail,T.cab,-1.9,1.9,1.5,3,PAL.frame);P(T.cab,T.bumper-.6,-T.half,T.half,2.4,6.8,n.c1);P(T.cab,T.cab+5.5,-T.half,T.half,2.4,11.5,n.c2,n.c1);
+    P(T.cab+5,T.cab+5.6,-T.half+.4,T.half-.4,7.2,10.5,gl);P(T.bumper-.6,T.bumper,-T.half,T.half,1.6,3.4,PAL.bumper);for(const sd of[-1,1])P(T.cab+4.6,T.cab+5.2,sd*(T.half+.2)-.15,sd*(T.half+.2)+.15,5,12,PAL.pole);
+    wheels(Q,[-u.d-2.1,-u.d+2.1],3.4,1.6);Q(rr,u.kp,-u.w/2,u.w/2,4,13.5,n.tc||PAL.trl,PAL.trl);Q(rr-.1,rr+.1,-u.w/2+.4,u.w/2-.4,4.2,13,PAL.trlDoor);
+    for(const sd of[-1,1])Q(rr-.15,rr+.05,sd*3.2-.5,sd*3.2+.5,4.2,5,n.v<-.1?PAL.signW:PAL.brakeD);return;}
+  if(n.kind==='fork'){const P=box(n.x,n.y,n.th);wheels(P,[1.2,-3.2],1.9,.9);P(-4.5,2,-2.1,2.1,.6,3.6,n.c1);P(-4.5,-3,-2.1,2.1,.6,4.6,PAL.forkD);
+    for(const sd of[-1,1])P(-1.4,-1.2,sd*1.9-.1,sd*1.9+.1,3.6,7.4,PAL.frame);P(-2,1,-2,2,7.4,7.6,PAL.frame);P(2,2.5,-1.8,1.8,0,9,PAL.frame);
+    const lz=n.wait>0?2.5:.3;for(const sd of[-1,1])P(2.5,6.5,sd*1.1-.25,sd*1.1+.25,lz,lz+.2,PAL.bumper);if(n.carry){P(2.6,6.6,-2,2,lz+.2,lz+.8,PAL.wood);P(2.8,6.4,-1.8,1.8,lz+.8,lz+4,PAL.palletL);}return;}
+  const T=VT[n.type],L=T.len/2,Wd=T.wid/2,h=HV[n.type]||6,P=box(n.x,n.y,n.th);
+  if(T.trl){const hx=n.x-Math.cos(n.th)*4,hy=n.y-Math.sin(n.th)*4,Q=box(hx,hy,n.ph),rr=-T.trl+2;
+    wheels(Q,[rr+6,rr+10],3.3,1.6);Q(rr,2,-4.25,4.25,4,13.5,PAL.trl,PAL.trl);Q(rr-.1,rr+.1,-3.9,3.9,4.2,13,PAL.trlDoor);for(const sd of[-1,1])Q(rr-.2,rr,sd*3-.6,sd*3+.6,4.2,5,bl);}
+  switch(n.type){
+    case 'moto':P(-L,L,-.35,.35,0,2.3,tire);P(-L*.5,L*.55,-Wd*.6,Wd*.6,1.6,3.3,c1);P(-1.2,.6,-.9,.9,3.3,5.4,PAL.legs);P(-.8,.4,-.6,.6,5.4,6.3,PAL.helmet);P(-L-.1,-L+.1,-.3,.3,2.6,3.1,bl);return;
+    case 'semi':wheels(P,[L-3,-L+3.5,-L+7],3.6,1.6);P(-L,L,-1.9,1.9,1.4,3,PAL.frame);P(-L+6,L-4,-Wd+.2,Wd-.2,2.6,11,c1,c2);P(L-4,L,-Wd+.6,Wd-.6,2.6,6.5,c1,c1);
+      P(L-4.3,L-3.9,-Wd+.6,Wd-.6,7,10,gl);P(L-.4,L+.1,-Wd+.4,Wd-.4,1.6,3.4,PAL.bumper);for(const sd of[-1,1])P(L-4.6,L-4.2,sd*(Wd+.2)-.15,sd*(Wd+.2)+.15,5,12,PAL.pole);
+      for(const sd of[-1,1])P(L-.1,L+.1,sd*(Wd-1.3)-.5,sd*(Wd-1.3)+.5,3,3.8,hd);return;
+    case 'box':wheels(P,[L-3,-L+4],3.3,1.5);P(L-6.6,L,-Wd+.3,Wd-.3,1.2,7.8,c1,c1);P(L-1.2,L-.9,-Wd+.5,Wd-.5,4.6,7.2,gl);P(-L,L-6.8,-Wd,Wd,2,h,PAL.trl,PAL.trl);
+      P(-L-.1,-L+.1,-Wd+.4,Wd-.4,2.2,h-.4,PAL.trlDoor);lights(P,L,Wd,2.4);P(L-.2,L+.2,-Wd+.3,Wd-.3,1,2.2,PAL.bumper);return;
+    case 'amb':wheels(P,[L-3,-L+3.5],3.2,1.4);P(L-5,L,-Wd+.3,Wd-.3,1,6.6,PAL.signW,PAL.signW);P(L-1.8,L-1.4,-Wd+.5,Wd-.5,4,6.2,gl);P(-L,L-5.2,-Wd,Wd,1.2,h,PAL.signW,PAL.signW);
+      P(-L,L-5.2,-Wd-.05,Wd+.05,4.2,5.2,PAL.stopR);lights(P,L,Wd,2.4);if(n.siren&&!n.dead){const ph=Math.floor(now()*6)%2;P(L-4.6,L-3.6,-Wd+.6,0,h,h+.6,ph?PAL.sirR:PAL.signW);P(L-4.6,L-3.6,0,Wd-.6,h,h+.6,ph?PAL.signW:PAL.sirR);}return;
+    case 'van':wheels(P,[L-3,-L+3],Wd-.4,1.3);P(-L,L*.62,-Wd,Wd,1,h,c1,c1);P(L*.62,L,-Wd+.2,Wd-.2,1,h*.52,c1,c1);P(L*.55,L*.7,-Wd+.4,Wd-.4,h*.52,h*.88,gl);
+      for(const sd of[-1,1])P(-L*.4,L*.4,sd*Wd-.05,sd*Wd+.05,h*.55,h*.8,gl);lights(P,L,Wd,2.2);P(-L-.2,L+.2,-Wd+.2,Wd-.2,.9,1.9,PAL.bumper);return;
+    case 'pickup':wheels(P,[L*.62,-L*.6],Wd-.4,1.4);P(-L,L,-Wd,Wd,1,h*.5,c1,c1);P(-L*.18,L*.32,-Wd+.3,Wd-.3,h*.5,h,gl,c1);
+      for(const sd of[-1,1])P(-L,-L*.2,sd*(Wd-.25)-.25,sd*(Wd-.25)+.25,h*.5,h*.66,c1);P(-L,-L+.4,-Wd+.3,Wd-.3,h*.5,h*.66,c1);lights(P,L,Wd,2.4);P(L-.2,L+.2,-Wd+.2,Wd-.2,1,2.2,PAL.bumper);return;
+    default:{const suv=n.type==='suv'||n.type==='police';wheels(P,[L*.62,-L*.62],Wd-.4,suv?1.4:1.25);P(-L,L,-Wd,Wd,1,h*.52,c1,c1);
+      const cf0=suv?-L*.78:-L*.45,cf1=L*.28;P(cf0,cf1,-Wd+.4,Wd-.4,h*.52,h,gl,n.type==='police'?PAL.signW:c1);
+      lights(P,L,Wd,2.4);P(L-.2,L+.2,-Wd+.2,Wd-.2,.8,2,PAL.bumper);P(-L-.2,-L+.2,-Wd+.2,Wd-.2,.8,2,PAL.bumper);
+      if(n.type==='police'){for(const sd of[-1,1])P(-L*.2,L*.15,sd*Wd-.05,sd*Wd+.05,1.4,h*.48,PAL.signW);if(n.parked||n.siren){const ph=Math.floor(now()*6)%2;P(-.5,.5,-Wd+.6,0,h,h+.5,ph?PAL.sirR:PAL.sirB);P(-.5,.5,0,Wd-.6,h,h+.5,ph?PAL.sirB:PAL.sirR);}}
+      if(n.dead&&Math.random()<.2)smoke([n.x,n.y],PAL.smokeD);}
+  }
 }
 
 function updateSink(name,si,dt,lf){
@@ -2486,7 +2577,7 @@ function render(){
     if(x1>x0)fb.set(world.subarray(wy*WPX+camPX+x0,wy*WPX+camPX+x1),row+x0);
   }}
   if(MAP.proc)drawHwGround();
-  drawScars();drawDebris();drawWrecks();drawTarget();drawCones();drawCrews();if(MAP.proc)drawHwObst();if(MAP.city)cityDrawUnder();drawNpcs();drawPeds();drawWatch();drawGuide();
+  drawScars();drawHoles();drawDebris();drawWrecks();drawTarget();drawCones();drawCrews();if(MAP.proc)drawHwObst();if(MAP.city)cityDrawUnder();drawNpcs();drawPeds();drawWatch();drawGuide();
   drawTractorLower();
   for(let i=ch.length-1;i>=0;i--)drawUnit(ch[i],false);
   drawTractorUpper();
