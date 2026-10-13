@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>gladhand dockyard v10</title>
+<title>gladhand dockyard v11</title>
 <!--
 RED PHONE: trailer backing sim v5
 RED PHONE: v4 written on the Red phone in chat with Claude Opus 5.5, Oct 11 2026 (single van, dock yard, inspection, air lines, magnetic coupling)
@@ -27,6 +27,9 @@ BLUE PHONE: v9 adds: camera control. drag the map to look around, pinch to zoom,
 BLUE PHONE: v10 adds: Driver camera, a first person view from the cab with a hood, dash and two working mirrors,
 BLUE PHONE: and the dock yard doubled each way: container terminal, rail spur, a cross dock with ten more doors facing north,
 BLUE PHONE: a fuel island, a truck scale, truck parking, more traffic, more forklifts and more people
+BLUE PHONE: v11 adds: the City, an open street grid with working signals, telephone poles and wires that come down when hit,
+BLUE PHONE: power outages that flash the lights, trees, hydrants that geyser, houses, downtown towers, a park, a gas station,
+BLUE PHONE: parked cars you can shove, city traffic on random routes, pedestrians on crosswalks, and a warehouse to deliver to
 -->
 <style>
 /* RED PHONE: palette from the truck yard. light concrete panels, safety yellow, DOT red, glad hand blue. no dark backgrounds */
@@ -413,10 +416,10 @@ const TRACTORS={
 // RED PHONE: b is where the next unit hooks on, measured from this unit's axle (null means last unit)
 // =====================================================================
 const CFGS={
-  van:{name:'Dry van',desc:'53 footer by default. Slide the tandems in the rig menu.',maps:['yard','route','highway']},
-  doubles:{name:'Pup doubles',desc:'Two 28s and a converter dolly. Backing these is a legend.',maps:['yard','route','highway']},
-  blade:{name:'Turbine blade',desc:'164 ft blade, extendable trailer, rear steer. Watch the tip.',maps:['route','highway']},
-  lowboy:{name:'Excavator lowboy',desc:'85,000 lb machine on a three axle lowboy. 10 ft wide.',maps:['route','highway']},
+  van:{name:'Dry van',desc:'53 footer by default. Slide the tandems in the rig menu.',maps:['yard','route','city','highway']},
+  doubles:{name:'Pup doubles',desc:'Two 28s and a converter dolly. Backing these is a legend.',maps:['yard','route','city','highway']},
+  blade:{name:'Turbine blade',desc:'164 ft blade, extendable trailer, rear steer. Watch the tip.',maps:['route','city','highway']},
+  lowboy:{name:'Excavator lowboy',desc:'85,000 lb machine on a three axle lowboy. 10 ft wide.',maps:['route','city','highway']},
 };
 const BOXES={28:[17,21],40:[24,30],48:[30,37],53:[34,41]};
 const BLADE_LEN=164,BLADE_ROOT=-3;
@@ -441,9 +444,10 @@ const SURF=[
  {n:'asphalt',mu:.80,roll:0},{n:'wet',mu:.40,roll:0},{n:'gravel',mu:.55,roll:.7},
  {n:'dirt',mu:.35,roll:1.6,soft:1},{n:'curb',mu:.80,roll:.2,curb:1},{n:'bump',mu:.80,roll:0,bump:1},
  {n:'sand',mu:.42,roll:1.5,soft:1},{n:'building',mu:.8,roll:0},{n:'wash',mu:.4,roll:1.8,soft:1},{n:'concrete',mu:.82,roll:0},
- {n:'pothole',mu:.7,roll:.6,pot:1},{n:'shoulder',mu:.74,roll:.15},{n:'rumble',mu:.78,roll:.1,rumble:1}
+ {n:'pothole',mu:.7,roll:.6,pot:1},{n:'shoulder',mu:.74,roll:.15},{n:'rumble',mu:.78,roll:.1,rumble:1},
+ {n:'sidewalk',mu:.8,roll:.05},{n:'kerb',mu:.8,roll:.25,curb:1},{n:'grass',mu:.55,roll:.7}
 ];
-const S_ASP=0,S_WET=1,S_GRV=2,S_SOFT=3,S_CURB=4,S_BUMP=5,S_DES=6,S_BLD=7,S_WASH=8,S_CON=9,S_POT=10,S_SHL=11,S_RUMB=12;
+const S_ASP=0,S_WET=1,S_GRV=2,S_SOFT=3,S_CURB=4,S_BUMP=5,S_DES=6,S_BLD=7,S_WASH=8,S_CON=9,S_POT=10,S_SHL=11,S_RUMB=12,S_SIDE=13,S_KERB=14,S_GRASS=15;
 
 // =====================================================================
 // RED PHONE: palette
@@ -465,7 +469,8 @@ const PAL={};
  ['amber','#f2a01c'],['stripe','#2a62b0'],['brakeL','#ff3b2f'],['brakeD','#9a3a32'],['headL','#fff3b0'],['vestY','#d4f03c'],['vestO','#ff7a1a'],['refl','#eef3f5'],
  ['legs','#4a4741'],['stopR','#d8261c'],['shl','#a29f97'],['shl2','#99968d'],['rumb','#8a877f'],['pot1','#6a655d'],['pot2','#57524a'],['scrub','#8c9a5b'],['scrub2','#a4ad6c'],
  ['post','#3f8a3f'],['signG','#2f7a45'],['signW','#f7f5ef'],['polB','#2e3338'],['sirR','#ff2a1f'],['sirB','#2f6bff'],['forkD','#5c5a54'],['palletL','#c7a46d'],
- ['ladder','#b9bcbe'],['ctrR','#b5523b'],['ctrB','#3f6fa8'],['ctrG','#4f8a5b'],['ctrO','#d9822b'],['ctrW','#e8e6df'],['ctrT','#3f9a9a'],['ctrY','#d9b23a'],['ballast','#9a9182'],['tie','#6e5640'],['railcar','#8a4b33'],['canopy','#e9e7e1'],['matt','#f3f1ea'],['mattB','#7da0c8'],
+ ['ladder','#b9bcbe'],['grass','#a3bd72'],['grass2','#97b266'],['side','#d4cfc3'],['side2','#c6c1b4'],['kerb','#b3ada0'],['treeA','#6f9a4a'],['treeB','#557f37'],['treeC','#8bb25e'],
+ ['poleW','#7a5a3a'],['wire','#36332f'],['hydr','#d8261c'],['sigH','#2e3338'],['sigG','#2fd16a'],['sigY','#f2c230'],['sigR','#ee3a2c'],['ctrR','#b5523b'],['ctrB','#3f6fa8'],['ctrG','#4f8a5b'],['ctrO','#d9822b'],['ctrW','#e8e6df'],['ctrT','#3f9a9a'],['ctrY','#d9b23a'],['ballast','#9a9182'],['tie','#6e5640'],['railcar','#8a4b33'],['canopy','#e9e7e1'],['matt','#f3f1ea'],['mattB','#7da0c8'],
  ['rubble','#8a8377'],['rubble2','#6b655b'],['scorch','#57524a'],['dent','#5f5a52'],['newFence','#c9c2b2'],
  ['wreck','#5c574f'],['wreck2','#7a7368'],['smokeD','#8f8b82'],['fire','#e8662a'],['vest','#ee7a22'],['helmet','#fbfaf5'],['good','#3f8a3f']
 ].forEach(([k,v])=>PAL[k]=col(v));
@@ -480,7 +485,7 @@ function pothole(cx,cy,r){for(let y=Math.floor(cy-r);y<=Math.ceil(cy+r);y++)for(
   if(d<1-hsh(x,y)/400&&(s===S_ASP||s===S_CON||s===S_GRV||s===S_WET))surf[i]=S_POT;}}
 function surfAt(x,y){if(MAP&&MAP.proc)return hwSurf(x,y);const ix=Math.floor(x),iy=Math.floor(y);if(ix<0||iy<0||ix>=W||iy>=H)return S_DES;return surf[iy*W+ix];}
 // BLUE PHONE: how much hit each kind of structure takes before it breaks open. anything not listed never breaks
-const BRK={wall:18,rail:45,pole:18,sign:8,shack:60,dock:30,pallet:6,debrisH:4,board:25,pump:15};
+const BRK={wall:18,rail:45,pole:18,sign:8,shack:60,dock:30,pallet:6,debrisH:4,board:25,pump:15,tpole:10,tree:26,hydrant:3,sig:14};
 function addOb(x,y,w,h,type,label,tall){OBST.push({id:'o'+(oid++),type,label,tall:!!tall,cx:x+w/2,cy:y+h/2,ang:0,hl:w/2,hw:h/2,hp:BRK[type]||9999});}
 function ob(x,y,w,h,type,label,tall){
   // BLUE PHONE: long fences and rails split into short panels so a crash breaks one panel, not the whole line
@@ -509,6 +514,9 @@ function paintBase(){
       case S_CON:c=h<12?PAL.concrete2:PAL.concrete;break;
       case S_POT:c=h<45?PAL.pot1:PAL.pot2;break;
       case S_SHL:c=h<20?PAL.shl2:PAL.shl;break;
+      case S_SIDE:c=(x%(5*PPF)===0||y%(5*PPF)===0)?PAL.side2:PAL.side;break;
+      case S_KERB:c=PAL.kerb;break;
+      case S_GRASS:c=h<30?PAL.grass2:PAL.grass;break;
       default:c=h<20?PAL.desert2:PAL.desert;
     }
     world[y*WPX+x]=c;
@@ -654,6 +662,8 @@ const MAPS={
     spawn:{kx:236,ky:262,h:Math.PI}},
   route:{name:'Haul route',desc:'Two county roads, a bridge, a work zone. Deliver to the turbine pad.',W:900,H:700,build:buildRoute,goal:'pad',
     spawn:{kx:232,ky:590,h:0}},
+  city:{name:'City',desc:'Open streets, live signals, traffic and people. Deliveries go to the warehouse docks.',W:1600,H:1400,build:buildCity,goal:'docks',city:true,vmax:66,speedo:50,
+    spawn:{kx:400,ky:1180,h:Math.PI}},
   highway:{name:'Highway',desc:'Interstate with live traffic. Merge from the shoulder and hold your lane.',W:1,H:1,proc:true,build:()=>{CONE_HOME=[];},goal:'miles',
     spawn:{kx:42,ky:-1,h:-Math.PI/2}},
 };
@@ -948,7 +958,7 @@ function cabColor(T,p1,p2){return(f,l,fe)=>{
     case 'heavy':return(f<T.cab+6||(f<fe-1&&a<1.2))?p2:p1;}
   return p1;};}
 function boxColor(u){const hw=u.w/2,rr=u.kp-u.len;return(f,l)=>(Math.abs(l)>hw-.5||f>u.kp-.5||f<rr+.5)?PAL.trlEdge:(f<rr+1.1?PAL.trlDoor:PAL.trl);}
-const OB_SOFT={container:.6,railcar:.4,wall:1.6,rail:1.1,dock:.8,parked:1,shack:1.3,building:.6,tower:.25};
+const OB_SOFT={house:1,container:.6,railcar:.4,wall:1.6,rail:1.1,dock:.8,parked:1,shack:1.3,building:.6,tower:.25};
 // BLUE PHONE: dents and caved in faces on structures. thin things like fence panels bend and get shoved instead
 function rectW(x0,x1,y0,y1,c){if(x1>x0&&y1>y0)fillOBB((x0+x1)/2,(y0+y1)/2,0,(x1-x0)/2,(y1-y0)/2,c);}
 function drawObCrush(o,cr,sc){
@@ -965,8 +975,8 @@ function drawObCrush(o,cr,sc){
   for(const i in cr.R){const d=cr.R[i]*sc;if(d<.05)continue;const a=x0+ +i,b=Math.min(x1,a+1);
     if(thin){rectW(a,b,y0,y1,gc(a,y0-1));rectW(a,b,y0-d,y1-d,piece);}else{rectW(a,b,y1-d,y1,gc(a+.5,y1-d/2));rectW(a,b,y1-d-.6,y1-d,PAL.dent);}}
 }
-const BASE$={container:4000,railcar:6000,pump:8000,pallet:150,board:3000,debrisH:0,building:2400,tower:9000,parked:1800,shack:1500,dock:1200,wall:350,rail:900,pole:700,sign:250};
-const MAT={container:['ctrR','ctrB','ctrO'],railcar:['railcar','frame'],pump:['signW','stopR','glass'],pallet:['wood','palletL'],debrisH:['tire','rubble'],board:['frame','amber'],wall:['fence','pole'],building:['roof','roofEdge','hvac','door'],dock:['dockB','door'],pole:['wood','pole'],sign:['sign','pole','wood'],
+const BASE$={tpole:4500,tree:1200,hydrant:2500,sig:6000,house:3000,container:4000,railcar:6000,pump:8000,pallet:150,board:3000,debrisH:0,building:2400,tower:9000,parked:1800,shack:1500,dock:1200,wall:350,rail:900,pole:700,sign:250};
+const MAT={tpole:['poleW','wire'],tree:['treeA','treeB','poleW'],hydrant:['hydr','signW','wet'],sig:['sigH','sigG','sigY'],house:['side','glass','roof'],container:['ctrR','ctrB','ctrO'],railcar:['railcar','frame'],pump:['signW','stopR','glass'],pallet:['wood','palletL'],debrisH:['tire','rubble'],board:['frame','amber'],wall:['fence','pole'],building:['roof','roofEdge','hvac','door'],dock:['dockB','door'],pole:['wood','pole'],sign:['sign','pole','wood'],
   shack:['shack','shackE','glass'],parked:['parked','parkedE','trlTire'],tower:['tower','tower2'],rail:['rail','concrete'],berm:['soft','soft2','dirt'],
   trailer:['trl','trlEdge'],legs:['leg','frame']};
 // BLUE PHONE: impact energy grows with the square of speed and with the weight of the rig
@@ -978,7 +988,9 @@ function crash(hit,mph,extra){
   const geo=o.cx!=null?o:hit.ob,[cx,cy]=hit.cx!=null?[hit.cx,hit.cy]:closestOBB(geo,b.cx,b.cy);
   const w=weights(),mf=Math.min(2.5,w.gvw/40000),E=hit.E!=null?hit.E:mph*mph/4*mf;
   const prop=o.type!=='trailer'&&o.type!=='legs'&&o.type!=='berm'&&o.type!=='vehicle',st=dstore(),T=tnow();let broke=false;
-  if(prop&&o.hp<9999){const nd=obsDmg(o)+E;st.obs[o.id]={d:Math.round(nd*10)/10,t:T};if(nd>=o.hp)broke=true;}
+  if(prop&&o.hp<9999){const nd=obsDmg(o)+E,old=st.obs[o.id];st.obs[o.id]={d:Math.round(nd*10)/10,t:T};if(old&&old.fa!=null)st.obs[o.id].fa=old.fa;
+    if(nd>=o.hp){broke=true;if(st.obs[o.id].fa==null){const vh=G.s.th+(G.s.v<0?Math.PI:0)+(Math.random()-.5)*.5;st.obs[o.id].fa=Math.round(normA(vh)*100)/100;}
+      if(o.type==='tpole'&&!old)setTimeout(()=>msg('Pole down. The lights just went out at the nearest intersection',3),700);if(o.type==='hydrant')setTimeout(()=>msg('Hydrant sheared off. Water everywhere',2.5),700);}}
   if(prop&&!MAP.proc){addMark(cx,cy,E,o);st.cost+=Math.round((BASE$[o.type]||500)*(.4+E/20));}
   const solidK=broke?.7:(o.type==='building'||o.type==='tower'||o.type==='berm'?1.3:o.type==='sign'?.3:1);
   const td=(hit.E!=null?hit.E*(.6+.4*Math.min(2,mf))/Math.max(.3,mf):100*Math.pow(mph/20,2)*(.6+.4*Math.min(2,mf)))*solidK*(extra?.5:1);
@@ -1034,7 +1046,7 @@ function damageFx(dt){
   chunks=chunks.filter(k=>!k.dead);
 }
 function groundAt(x,y){switch(surfAt(x,y)){case S_ASP:return PAL.asphalt;case S_WET:return PAL.wet;case S_GRV:return PAL.gravel;case S_SOFT:return PAL.soft;
-  case S_CON:return PAL.concrete;case S_WASH:return PAL.wash;case S_BLD:return PAL.roof;default:return PAL.desert;}}
+  case S_CON:return PAL.concrete;case S_SIDE:return PAL.side;case S_KERB:return PAL.kerb;case S_GRASS:return PAL.grass;case S_WASH:return PAL.wash;case S_BLD:return PAL.roof;default:return PAL.desert;}}
 // BLUE PHONE: rubble speckle, stable from frame to frame because it hashes world pixels
 function speck(x0,y0,x1,y1,dens,cx,cy,rad){
   const[a,b]=toB(x0,y0),[c,d]=toB(x1,y1);const X0=Math.max(0,Math.floor(a)),X1=Math.min(bufW-1,Math.ceil(c)),Y0=Math.max(0,Math.floor(b)),Y1=Math.min(bufH-1,Math.ceil(d));
@@ -1332,7 +1344,7 @@ function rigUpdate(R,dt){
 // =====================================================================
 const HAIR=['#3b2a20','#1f1b18','#7a5230','#c9a46a','#8e8a86'];
 function mkPed(x,y,o){return{id:++nid,x,y,th:Math.random()*6.28,v:0,tx:x,ty:y,idle:rnd(0,3),dodge:0,step:0,waitT:0,hair:HAIR[Math.floor(Math.random()*HAIR.length)],shirt:'#5f6469',speed:4,role:'walk',...o};}
-function pedNewTarget(p){p.waitT=0;if(p.role==='loiter'){p.tx=p.hx+rnd(-p.r,p.r);p.ty=p.hy+rnd(-p.r,p.r);}
+function pedNewTarget(p){p.waitT=0;if(p.role==='city'){cityPedNext(p);return;}if(p.role==='loiter'){p.tx=p.hx+rnd(-p.r,p.r);p.ty=p.hy+rnd(-p.r,p.r);}
   else if(p.role==='line'){p.li=1-(p.li||0);p.tx=p.line[p.li][0];p.ty=p.line[p.li][1];}
   else{const q=p.pois[Math.floor(Math.random()*p.pois.length)];p.tx=q[0]+rnd(-3,3);p.ty=q[1]+rnd(-3,3);}}
 function pedUpdate(p,dt){
@@ -1346,8 +1358,9 @@ function pedUpdate(p,dt){
     if(dmin<1.1){const ax=p.x-cx,ay=p.y-cy,l=Math.hypot(ax,ay)||1;p.x=cx+ax/l*1.2;p.y=cy+ay/l*1.2;}}
   if(p.role==='flag'){p.th=p.face;p.v=0;return;}
   if(p.idle>0){p.idle-=dt;p.v=0;return;}
+  if(p.wl){const lt=cLight(p.wl.n,p.wl.axis);if(lt!=='G'&&lt!=='F'){p.v=0;return;}p.wl=null;}   // BLUE PHONE: wait for the walk light
   const dx=p.tx-p.x,dy=p.ty-p.y,d=Math.hypot(dx,dy);
-  if(d<1){p.idle=p.role==='line'?rnd(1,3):rnd(1.5,6);pedNewTarget(p);return;}
+  if(d<1){p.idle=p.role==='city'?rnd(0,1.2):p.role==='line'?rnd(1,3):rnd(1.5,6);pedNewTarget(p);return;}
   const ang=Math.atan2(dy,dx),lx=p.x+Math.cos(ang)*3,ly=p.y+Math.sin(ang)*3;p.th=ang;let wait=false;
   for(const b of BLK){if(b.ped||b.haz)continue;const sp=Math.hypot(b.vx,b.vy);const dx2=b.cx-lx,dy2=b.cy-ly;if(Math.abs(dx2)>b.xe+20||Math.abs(dy2)>b.ye+20)continue;
     const[qx,qy]=closestOBB(b,lx,ly),dd=Math.hypot(qx-lx,qy-ly);if((sp>.5&&dd<7+sp*.7)||dd<1.2){wait=true;break;}}
@@ -1419,16 +1432,17 @@ function routeLife(){
 }
 function initWorld(){
   NPCS=[];PEDS=[];STREAMS=[];FLAG=null;HW=null;G.watch=false;
-  if(G.map==='yard')yardLife();else if(G.map==='route')routeLife();else if(MAP.proc)hwInit();
+  if(G.map==='yard')yardLife();else if(G.map==='route')routeLife();else if(MAP.city)cityLife();else if(MAP.proc)hwInit();
   const hasRig=NPCS.some(n=>n.kind==='rig');$('bWatch').classList.toggle('hide',!hasRig);$('bWatch').classList.remove('on');
 }
 function npcTick(dt){
   buildBLK();
   if(FLAG)flagTick(dt);
-  for(const n of NPCS){switch(n.kind){case 'rig':rigUpdate(n,dt);break;case 'car':carUpdate(n,dt);break;case 'fork':forkUpdate(n,dt);break;case 'hw':hwUpdate(n,dt);break;}}
+  for(const n of NPCS){switch(n.kind){case 'rig':rigUpdate(n,dt);break;case 'car':carUpdate(n,dt);break;case 'fork':forkUpdate(n,dt);break;case 'hw':hwUpdate(n,dt);break;case 'pk':if(n.knock)knockUpdate(n,dt);break;}}
   NPCS=NPCS.filter(n=>!n.gone&&!(n.dead&&n.kind!=='rig'&&!MAP.proc&&now()-n.deadT>50&&nDist(n)>120));
   for(const p of PEDS)pedUpdate(p,dt);
   if(MAP.proc){hwTick(dt);hwPairs();}else spawnTick(dt);
+  if(MAP.city)cityTick(dt);
 }
 
 // =====================================================================
@@ -1725,7 +1739,7 @@ function drawMiniHw(){
 const fpC=$('fp'),fpX=fpC.getContext('2d'),fpLo=document.createElement('canvas'),fpL=fpLo.getContext('2d');
 const fmC=[document.createElement('canvas'),document.createElement('canvas')],fmX=fmC.map(c=>c.getContext('2d'));
 let FP={W:0,H:0,img:null,buf:null,mW:0,mH:0,mImg:[null,null],mBuf:[null,null],shown:false};
-const OBH={building:32,parked:13.5,shack:10,pole:28,sign:7,tower:220,rail:3.2,wall:7,dock:4.5,pallet:5,debrisH:.9,board:9,berm:4,container:8.6,railcar:15,pump:6};
+const OBH={tpole:30,tree:8,hydrant:2.6,sig:18,house:16,building:32,parked:13.5,shack:10,pole:28,sign:7,tower:220,rail:3.2,wall:7,dock:4.5,pallet:5,debrisH:.9,board:9,berm:4,container:8.6,railcar:15,pump:6};
 const HV={sedan:4.8,suv:6,pickup:6.2,van:7.5,box:11,semi:11,moto:4,police:5,amb:9,fork:7,rig:11};
 const HAZE=col('#e7e3d9'),SKY0=col('#bcd6ea'),SKY1=col('#eef1ee'),HILL=col('#cdbfae');
 const CSSC=new Map();
@@ -1770,10 +1784,10 @@ function fpCollect(cx,cy,R){
   const L=[],add=(b,z0,z1,c,top)=>{L.push({cx:b.cx,cy:b.cy,ang:b.ang||0,hl:b.hl,hw:b.hw,z0,z1,c,top:top||c});};
   const nearB=b=>Math.abs(b.cx-cx)<R+b.hl+b.hw&&Math.abs(b.cy-cy)<R+b.hl+b.hw;
   for(const o of OBST){if(!nearB(o))continue;if(o.hp<9999&&isBroken(o))continue;const h=o.h||OBH[o.type]||6;
-    const c=o.col!=null?o.col:o.type==='building'?col('#d6d0c2'):o.type==='parked'?PAL.trl:o.type==='shack'?PAL.shack:o.type==='pole'?PAL.pole:o.type==='sign'?PAL.sign:
+    const c=o.col!=null?o.col:o.type==='tpole'||o.type==='tree'?PAL.poleW:o.type==='hydrant'?PAL.hydr:o.type==='sig'?PAL.sigH:o.type==='building'?col('#d6d0c2'):o.type==='parked'?PAL.trl:o.type==='shack'?PAL.shack:o.type==='pole'?PAL.pole:o.type==='sign'?PAL.sign:
       o.type==='tower'?PAL.tower2:o.type==='rail'?PAL.rail:o.type==='wall'?PAL.fence:o.type==='dock'?PAL.dockB:o.type==='pallet'?PAL.wood:o.type==='berm'?PAL.soft2:
       o.type==='pump'?PAL.signW:o.mat?o.mat[0]:PAL.concrete;
-    add(o,0,h,c,o.type==='building'?PAL.roof:null);}
+    add(o,0,h,c,o.roof?col(o.roof):o.type==='building'?PAL.roof:null);}
   for(const d of DOORS){const dir=d.dir||1,y=(d.y||51.2)-dir*1.35;if(Math.abs(d.x-cx)>R||Math.abs(y-cy)>R)continue;add({cx:d.x,cy:y,hl:5,hw:.2},0,12,G.target===d&&Math.floor(now()*2)%2?PAL.yellow||PAL.lineY:PAL.door);}
   for(const c of cones)if(Math.abs(c.x-cx)<R&&Math.abs(c.y-cy)<R)add({cx:c.x,cy:c.y,ang:c.ang,hl:c.knock?1:.6,hw:c.knock?.5:.6},0,c.knock?.8:2.4,PAL.cone);
   for(const n of NPCS){if(Math.abs(n.x-cx)>R||Math.abs(n.y-cy)>R)continue;const bs=nBoxes(n),h=HV[n.type]||6;
@@ -1784,6 +1798,7 @@ function fpCollect(cx,cy,R){
   const s=G.s;for(const c of chain(s)){const bs=unitBoxes(c),u=c.u;bs.forEach((b,i)=>{let z0=1.2,z1=13.5,cc=PAL.trl;
     if(b.high){z0=4.5;z1=13;cc=PAL.blade;}else if(u.type==='dolly'){z0=0;z1=3;cc=PAL.deck;}else if(u.type==='lowboy'){if(i===0){z0=0;z1=3.5;cc=PAL.deck;}else{z0=3.5;z1=13;cc=PAL.exc;}}
     else if(u.type==='blade'){z0=0;z1=4;cc=PAL.deck;}add(b,z0,z1,cc);});}
+  if(MAP.city)cityFp(add,cx,cy,R);
   return L;
 }
 function clipNear(P,n){const o=[];for(let i=0;i<P.length;i++){const A=P[i],B=P[(i+1)%P.length],ia=A[2]>=n,ib=B[2]>=n;if(ia)o.push(A);
@@ -1810,7 +1825,7 @@ function render3D(){
   fpResize();const s=G.s,T=TRK,ca=Math.cos(s.th),sa=Math.sin(s.th),W=FP.W,H=FP.H,co=T.style==='cabover';
   const eyeF=co?T.bumper-3:T.cab+3.6,eyeL=-1.8,sh=G.shake>0?(Math.random()-.5)*.03:0;
   const cam={x:s.x+ca*eyeF-sa*eyeL,y:s.y+sa*eyeF+ca*eyeL,z:(co?9.2:8.5)+(G.shake>0?(Math.random()-.5)*.3:0),yaw:s.th+(G.look||0)+sh,fov:78*DEG,hor:H*.4,maxD:900};
-  const boxes=fpCollect(s.x,s.y,900);
+  const boxes=fpCollect(s.x,s.y,MAP.city?600:900);
   fpScene(fpL,FP.img,FP.buf,W,H,cam,boxes);
   // BLUE PHONE: the cab around you. hood for long nose tractors, dash, windshield pillars
   const p1=T.paint[0],L=fpL;
@@ -1828,6 +1843,258 @@ function render3D(){
     L.save();L.translate(x0+mW,my);L.scale(-1,1);L.drawImage(fmC[i],0,0);L.restore();
     L.fillStyle='rgba(255,255,255,.18)';L.fillRect(x0,my,mW,1);}
   fpX.imageSmoothingEnabled=false;fpX.drawImage(fpLo,0,0,fpC.width,fpC.height);
+}
+
+
+// =====================================================================
+// BLUE PHONE: the city. an open street grid with signals, sidewalks, telephone poles strung with wire,
+// BLUE PHONE: downtown towers, a park, houses, a gas station, parking lots, an industrial strip,
+// BLUE PHONE: and a warehouse with twelve dock doors in the southwest corner for the delivery goal
+// =====================================================================
+const CXS=[100,300,500,700,900,1100,1300,1500],CYS=[100,300,500,700,900,1100,1300],CRW=22,CSW=32;
+let CITY=null;
+function cKey(i,j){return i+','+j;}
+function cNode(i,j){return CITY&&CITY.nodes[cKey(i,j)];}
+function cEdge(a,b){if(!a||!b)return false;const k=a.i<b.i||(a.i===b.i&&a.j<b.j)?a.k+'|'+b.k:b.k+'|'+a.k;return !CITY.cut[k];}
+function cNbr(n,d){const m=cNode(n.i+d[0],n.j+d[1]);return m&&cEdge(n,m)?m:null;}
+const CDIRS=[[1,0],[-1,0],[0,1],[0,-1]];
+function cityGraph(){
+  CITY={nodes:{},cut:{},poles:[],lines:[],sig:[],hyd:[],trees:[],lots:[]};
+  for(let i=0;i<CXS.length;i++)for(let j=0;j<CYS.length;j++){if(i===1&&j===5)continue;CITY.nodes[cKey(i,j)]={i,j,k:cKey(i,j),x:CXS[i],y:CYS[j],off:(i*7+j*11)%37,out:false};}
+  // BLUE PHONE: the warehouse lot swallows two road segments
+  const cut=(a,b)=>{CITY.cut[a+'|'+b]=1;};cut('0,5','1,5');cut('1,4','1,5');cut('1,5','1,6');cut('1,5','2,5');
+}
+function cityRoads(){
+  const segs=[];
+  for(const k in CITY.nodes){const n=CITY.nodes[k];for(const d of[[1,0],[0,1]]){const m=cNbr(n,d);if(m)segs.push([n,m,d]);}}
+  return segs;
+}
+function buildCity(){
+  cityGraph();surf.fill(S_DES);const segs=cityRoads(),N=Object.values(CITY.nodes);
+  // BLUE PHONE: sidewalks and curbs first, then asphalt over them so the roads cut clean intersections
+  for(const[a,b,d]of segs){if(d[0]){zone(a.x-CSW,a.y-CSW,b.x+CSW,a.y+CSW,S_SIDE);zone(a.x-CRW-1,a.y-CRW-1,b.x+CRW+1,a.y+CRW+1,S_KERB);}
+    else{zone(a.x-CSW,a.y-CSW,a.x+CSW,b.y+CSW,S_SIDE);zone(a.x-CRW-1,a.y-CRW-1,a.x+CRW+1,b.y+CRW+1,S_KERB);}}
+  for(const n of N){zone(n.x-CSW,n.y-CSW,n.x+CSW,n.y+CSW,S_SIDE);zone(n.x-CRW-1,n.y-CRW-1,n.x+CRW+1,n.y+CRW+1,S_KERB);}
+  for(const[a,b,d]of segs){if(d[0])zone(a.x,a.y-CRW,b.x,a.y+CRW,S_ASP);else zone(a.x-CRW,a.y,a.x+CRW,b.y,S_ASP);}
+  for(const n of N)zone(n.x-CRW,n.y-CRW,n.x+CRW,n.y+CRW,S_ASP);
+  // BLUE PHONE: blocks. bx,by is the block between avenue i and i+1, street j and j+1
+  const blk=(i,j)=>({x0:CXS[i]+CSW,x1:CXS[i+1]-CSW,y0:CYS[j]+CSW,y1:CYS[j+1]-CSW});
+  const H=(a,b)=>hsh(a*13+7,b*29+3);
+  const BCOL=['#c9c2b2','#b9b3a3','#d6cfc0','#a8a39a','#cfc6b0','#bfb7a6','#9d9a90','#d9d2c2'];
+  const roofOb=(x,y,w,h,ht,c)=>{ob(x,y,w,h,'building','building',1);const o=OBST[OBST.length-1];o.h=ht;o.col=col(c);o.roof=c;};
+  // BLUE PHONE: warehouse lot with the dock doors
+  zone(132,932,468,1268,S_ASP);zone(150,932,452,988,S_BLD);
+  DOORS=[];for(let i=0;i<12;i++)DOORS.push({n:i+1,x:170+i*24,y:989.2,dir:1,parked:[3,6,7,10].includes(i+1)});
+  ob(150,932,302,56,'building','warehouse',1);OBST[OBST.length-1].h=34;OBST[OBST.length-1].col=col('#d6d0c2');
+  for(const d of DOORS){ob(d.x-5,988,10,1.2,'dock','dock');if(d.parked)ob(d.x-4.25,989.2,8.5,53,'parked','parked trailer',1);}
+  ob(133,932,2,336,'wall','fence');ob(465,932,2,218,'wall','fence');ob(465,1210,2,58,'wall','fence');
+  ob(133,1266,107,2,'wall','fence');ob(300,1266,167,2,'wall','fence');ob(135,932,15,2,'wall','fence');ob(452,932,13,2,'wall','fence');
+  zone(240,1266,300,1279,S_ASP);zone(467,1150,479,1210,S_ASP);
+  ob(308,1240,14,12,'shack','guard shack',1);
+  for(const x of[420,428,436,444])ob(x-3,1000,6,6,'pallet','pallet stack');
+  CONE_HOME=[[180,1110],[192,1110],[204,1110],[216,1110],[228,1110],[180,1220],[192,1220],[204,1220]];
+  // BLUE PHONE: houses in the northwest
+  for(let i=0;i<2;i++)for(let j=0;j<4;j++){const b=blk(i,j);zone(b.x0,b.y0,b.x1,b.y1,S_GRASS);
+    for(let r=0;r<2;r++)for(let c=0;c<4;c++){const lx=b.x0+c*34,ly=r?b.y1-62:b.y0,hx=lx+5,hy=r?ly+30:ly+8,h=H(i*8+c,j*8+r);
+      ob(hx,hy,24,24,'house','house',1);const o=OBST[OBST.length-1];o.h=15+h%6;o.roof=['#b5523b','#8a5a3e','#6f6a63','#a0473a','#7d8a8f','#9a7b55'][h%6];o.col=col(['#e8dfcc','#d9cfba','#f0ead8','#cfc6b0'][h%4]);
+      zone(lx+12,r?ly+54:ly,lx+20,r?b.y1:ly+8,S_CON);
+      if(h%3===0)CITY.trees.push([lx+30,r?ly+20:ly+44]);}}
+  // BLUE PHONE: the park
+  {const b=blk(2,1);zone(b.x0,b.y0,b.x1,b.y1,S_GRASS);zone(b.x0,(b.y0+b.y1)/2-3,b.x1,(b.y0+b.y1)/2+3,S_CON);zone((b.x0+b.x1)/2-3,b.y0,(b.x0+b.x1)/2+3,b.y1,S_CON);
+    zone(b.x0+20,b.y0+80,b.x0+55,b.y0+120,S_WET);
+    for(let k=0;k<22;k++){const x=b.x0+8+H(k,1)%120,y=b.y0+8+H(k,2)%120;if(Math.abs(x-(b.x0+b.x1)/2)<9||Math.abs(y-(b.y0+b.y1)/2)<9)continue;CITY.trees.push([x,y]);}}
+  // BLUE PHONE: gas station
+  {const b=blk(3,3);zone(b.x0,b.y0,b.x1,b.y1,S_CON);for(const x of[b.x0+30,b.x0+60,b.x0+90])for(const y of[b.y0+40,b.y0+80])ob(x,y,4,10,'pump','fuel pump');
+    ob(b.x1-40,b.y1-36,36,30,'building','store',1);OBST[OBST.length-1].h=14;OBST[OBST.length-1].col=col('#f0ead8');
+    CITY.lots.push({x0:b.x0+4,y0:b.y1-30,x1:b.x1-46,y1:b.y1-4,n:4});CITY.canopy=[b.x0+20,b.y0+30,b.x0+104,b.y0+100];}
+  // BLUE PHONE: parking lots
+  for(const[i,j]of[[2,2],[5,3],[3,5]]){const b=blk(i,j);zone(b.x0,b.y0,b.x1,b.y1,S_ASP);CITY.lots.push({x0:b.x0+6,y0:b.y0+6,x1:b.x1-6,y1:b.y1-6,n:16,lines:1});}
+  // BLUE PHONE: downtown towers and mid rise blocks everywhere else
+  const dt=(i,j)=>i>=4&&j<=2;
+  for(let i=0;i<7;i++)for(let j=0;j<6;j++){
+    if(i<2&&j<4)continue;if(i<2&&j>=4)continue;if((i===2&&(j===1||j===2))||(i===3&&j===3)||(i===5&&j===3)||(i===3&&j===5))continue;
+    const b=blk(i,j);zone(b.x0,b.y0,b.x1,b.y1,S_CON);const h=H(i,j),w=b.x1-b.x0,hh=b.y1-b.y0;
+    if(i===6&&j>=3){roofOb(b.x0+6,b.y0+6,w-12,hh*.55,30,'#bdb6a6');zone(b.x0,b.y0+hh*.6,b.x1,b.y1,S_ASP);continue;}
+    const split=h%3,tall=dt(i,j);const parts=split===0?[[0,0,1,1]]:split===1?[[0,0,.5,1],[.5,0,1,1]]:[[0,0,.5,.5],[.5,0,1,.5],[0,.5,.5,1],[.5,.5,1,1]];
+    parts.forEach((q,k)=>{const x0=b.x0+q[0]*w+5,x1=b.x0+q[2]*w-5,y0=b.y0+q[1]*hh+5,y1=b.y0+q[3]*hh-5,hk=H(i*5+k,j*7+k);
+      roofOb(x0,y0,x1-x0,y1-y0,tall?60+hk%90:20+hk%25,BCOL[hk%BCOL.length]);});}
+  // BLUE PHONE: telephone poles, one line per road on the south or east side, strung across intersections
+  const mkPole=(x,y)=>{ob(x-.6,y-.6,1.2,1.2,'tpole','telephone pole',1);return OBST[OBST.length-1].id;};
+  for(let j=0;j<CYS.length;j++){let line=[];for(let i=0;i<CXS.length-1;i++){const a=cNode(i,j),b=cNode(i+1,j);if(!(a&&b&&cEdge(a,b))){if(line.length>1)CITY.lines.push(line);line=[];continue;}
+    for(const t of[40,96,152])line.push(mkPole(a.x+t+(H(i,j)%7),a.y+CRW+2.5));}if(line.length>1)CITY.lines.push(line);}
+  for(let i=0;i<CXS.length;i++){let line=[];for(let j=0;j<CYS.length-1;j++){const a=cNode(i,j),b=cNode(i,j+1);if(!(a&&b&&cEdge(a,b))){if(line.length>1)CITY.lines.push(line);line=[];continue;}
+    for(const t of[44,100,156])line.push(mkPole(a.x+CRW+2.5,a.y+t+(H(j,i)%7)));}if(line.length>1)CITY.lines.push(line);}
+  // BLUE PHONE: signal poles on two corners, hydrants on some corners, trees
+  for(const n of N){for(const[sx,sy]of[[-1,-1],[1,1]]){ob(n.x+sx*(CRW+4)-.7,n.y+sy*(CRW+4)-.7,1.4,1.4,'sig','signal pole',1);OBST[OBST.length-1].node=n.k;}
+    if(H(n.i,n.j)%2===0){const sx=H(n.j,n.i)%2?1:-1;ob(n.x+sx*(CRW+7)-.5,n.y-sx*(CRW+7)-.5,1,1,'hydrant','fire hydrant');}}
+  for(const[x,y]of CITY.trees){ob(x-1,y-1,2,2,'tree','tree',1);}
+  for(const[x,y,r]of[[300,640,2],[700,410,2.2],[1000,500,1.8],[1100,780,2.4],[620,900,2],[1300,1160,2.1],[900,1240,1.9],[1500,420,2.3],[1180,300,2],[820,100,1.8]])pothole(x,y,r);
+  // BLUE PHONE: road paint
+  paintBase();
+  const P=PAL;
+  for(const[a,b,d]of segs){
+    if(d[0]){const y=a.y,x0=a.x+CRW+6,x1=b.x-CRW-6;wfill(x0,y-.6,x1,y-.2,P.lineY);wfill(x0,y+.2,x1,y+.6,P.lineY);
+      for(let x=x0;x<x1-6;x+=20){wfill(x,y-11.4,x+8,y-10.6,P.lineW);wfill(x,y+10.6,x+8,y+11.4,P.lineW);}}
+    else{const x=a.x,y0=a.y+CRW+6,y1=b.y-CRW-6;wfill(x-.6,y0,x-.2,y1,P.lineY);wfill(x+.2,y0,x+.6,y1,P.lineY);
+      for(let y=y0;y<y1-6;y+=20){wfill(x-11.4,y,x-10.6,y+8,P.lineW);wfill(x+10.6,y,x+11.4,y+8,P.lineW);}}}
+  // BLUE PHONE: crosswalks and stop bars on every approach that has a road
+  for(const n of N)for(const d of CDIRS){if(!cNbr(n,[-d[0],-d[1]]))continue;
+    if(d[1]){const sg=-d[1],yc=n.y+sg*(CRW+3);for(let x=n.x-CRW+1;x<n.x+CRW-1;x+=3)wfill(x,yc-2.5,x+1.6,yc+2.5,P.lineW);
+      const ys=n.y+sg*(CRW+6.5),xs=d[1]<0?[n.x+.8,n.x+CRW]:[n.x-CRW,n.x-.8];wfill(xs[0],ys-.6,xs[1],ys+.6,P.lineW);}
+    else{const sg=-d[0],xc=n.x+sg*(CRW+3);for(let y=n.y-CRW+1;y<n.y+CRW-1;y+=3)wfill(xc-2.5,y,xc+2.5,y+1.6,P.lineW);
+      const xs=n.x+sg*(CRW+6.5),ys=d[0]>0?[n.y+.8,n.y+CRW]:[n.y-CRW,n.y-.8];wfill(xs-.6,ys[0],xs+.6,ys[1],P.lineW);}}
+  // BLUE PHONE: warehouse paint copied from the dock yard style
+  wfill(150,985.5,452,988,P.roofEdge);[[180,950],[260,960],[340,946],[410,958]].forEach(([x,y])=>wfill(x,y,x+9,y+6,P.hvac));
+  for(const d of DOORS){wfill(d.x-5.5,982.5,d.x+5.5,988,P.doorEdge);wfill(d.x-5,983,d.x+5,988,P.door);const s=String(d.n);wtext(s,d.x-(s.length*4*2)/(2*PPF),974,P.num,2);wfill(d.x-5,988,d.x+5,989.2,P.dockB);}
+  for(let i=0;i<=12;i++){const x=158+i*24;wfill(x-.35,989.2,x+.35,1056,P.lineY);}
+  for(const d of DOORS)if(d.parked){wfill(d.x-4.25,989.2,d.x+4.25,1042.2,P.parkedE);wfill(d.x-3.75,989.7,d.x+3.75,1041.7,P.parked);
+    for(const f of[8,12.2])for(const s of[-1,1])wfill(d.x+s*3.15-.85,989.2+f-1.7,d.x+s*3.15+.85,989.2+f+1.7,P.trlTire);}
+  for(const o of OBST){const x0=o.cx-o.hl,x1=o.cx+o.hl,y0=o.cy-o.hw,y1=o.cy+o.hw;
+    if(o.type==='building'&&o.roof){const c=col(o.roof);wfill(x0,y0,x1,y1,shadeU(c,.8));wfill(x0+.8,y0+.8,x1-.8,y1-.8,c);const hk=hsh(Math.round(x0),Math.round(y0));
+      for(let k=0;k<1+hk%4;k++){const hx=x0+4+hsh(k,Math.round(x0))%Math.max(1,Math.round(x1-x0-12)),hy=y0+4+hsh(Math.round(y0),k)%Math.max(1,Math.round(y1-y0-10));wfill(hx,hy,hx+7,hy+5,P.hvac);}}
+    if(o.type==='house'){const c=col(o.roof);wfill(x0,y0,x1,y1,shadeU(c,.75));wfill(x0+.6,y0+.6,x1-.6,o.cy-.3,c);wfill(x0+.6,o.cy+.3,x1-.6,y1-.6,shadeU(c,.9));}
+    if(o.type==='pump'){wfill(x0-1,y0-1,x1+1,y1+1,P.concrete2);wfill(x0,y0,x1,y1,P.signW);wfill(x0+1,y0+2,x1-1,y0+4,P.stopR);}
+    if(o.type==='pallet'){wfill(x0,y0,x1,y1,P.wood);for(let k=-2;k<=2;k+=1.4)wfill(x0+.4,o.cy+k-.35,x1-.4,o.cy+k+.35,P.palletL);}
+    if(o.type==='shack'){wfill(x0,y0,x1,y1,P.shackE);wfill(x0+1,y0+1,x1-1,y1-1,P.shack);}
+    if(o.type==='wall')wfill(x0,y0,x1,y1,P.fence);}
+  if(CITY.canopy){const[a,b,c,d]=CITY.canopy;wfill(a,b,c,d,shadeU(P.canopy,.85));wfill(a+1,b+1,c-1,d-1,P.canopy);wfill(a+1,b+1,c-1,b+3,P.stopR);}
+  for(const L of CITY.lots)if(L.lines)for(let x=L.x0;x<L.x1;x+=10){wfill(x,L.y0,x+.4,L.y0+18,P.lineW);wfill(x,L.y1-18,x+.4,L.y1,P.lineW);}
+}
+
+// =====================================================================
+// BLUE PHONE: signals. each intersection runs its own offset cycle. a downed pole nearby knocks the power out
+// BLUE PHONE: and the lights go to flashing red, so traffic treats it like a four way stop
+// =====================================================================
+const CYC=37;
+function cLight(n,axis){if(n.out)return 'F';const t=((now()+n.off)%CYC+CYC)%CYC;
+  if(axis==='NS')return t<14?'G':t<17?'Y':'R';return t>=18.5&&t<32.5?'G':t>=32.5&&t<35.5?'Y':'R';}
+function cLightCol(st){return st==='G'?PAL.sigG:st==='Y'?PAL.sigY:st==='F'?(Math.floor(now()*2)%2?PAL.sigR:PAL.sigH):PAL.sigR;}
+function cityPowerCheck(){const st=dstore();const down=[];
+  for(const o of OBST)if((o.type==='tpole'||o.type==='sig')&&isBroken(o))down.push(o);
+  for(const k in CITY.nodes){const n=CITY.nodes[k];n.out=down.some(o=>o.node===k||(o.type==='tpole'&&Math.hypot(o.cx-n.x,o.cy-n.y)<150));}
+  CITY.down=down;}
+
+// =====================================================================
+// BLUE PHONE: city cars. each one gets a random route through the grid, keeps right, picks its lane by its next turn,
+// BLUE PHONE: and stops at red lights. they spawn out of sight around you and leave once they are far behind
+// =====================================================================
+function rn(d){return[-d[1],d[0]];}
+function cityRoute(start,d0,steps){
+  let n=start,d=d0;const nodes=[n],dirs=[];
+  for(let k=0;k<steps;k++){const opts=[];
+    for(const nd of CDIRS){if(nd[0]===-d[0]&&nd[1]===-d[1])continue;const m=cNbr(n,nd);if(!m)continue;const w=(nd[0]===d[0]&&nd[1]===d[1])?5:2;for(let q=0;q<w;q++)opts.push([m,nd]);}
+    if(!opts.length)break;const[m,nd]=k===0?[cNbr(n,d),d]:opts[Math.floor(Math.random()*opts.length)];if(!m)break;dirs.push(nd);n=m;nodes.push(n);d=nd;}
+  if(dirs.length<2)return null;
+  const offs=dirs.map((dd,k)=>{const nx=dirs[k+1];if(!nx)return 16.5;const r=rn(dd),left=nx[0]===-r[0]&&nx[1]===-r[1];return left?5.5:(Math.random()<.3&&!(nx[0]===r[0]&&nx[1]===r[1])?5.5:16.5);});
+  const w=[],P=(n,a,b)=>[n.x+a,n.y+b];
+  {const n0=nodes[0],dd=dirs[0],r=rn(dd);w.push(P(n0,dd[0]*34+r[0]*offs[0],dd[1]*34+r[1]*offs[0]));}
+  const X=[];
+  for(let k=1;k<nodes.length;k++){const n=nodes[k],din=dirs[k-1],ri=rn(din),oi=offs[k-1];
+    w.push(P(n,-din[0]*(CRW+12)+ri[0]*oi,-din[1]*(CRW+12)+ri[1]*oi));X.push({n,axis:din[0]?'EW':'NS',wi:w.length-1});
+    if(k===nodes.length-1)break;const dout=dirs[k],ro=rn(dout),oo=offs[k];
+    if(dout[0]!==din[0]||dout[1]!==din[1])w.push(P(n,ri[0]*oi+ro[0]*oo,ri[1]*oi+ro[1]*oo));
+    w.push(P(n,dout[0]*(CRW+12)+ro[0]*oo,dout[1]*(CRW+12)+ro[1]*oo));}
+  const path=mkPath(w,false,3);
+  for(const c of X){const p=w[c.wi];c.s=nearestS(path,p[0],p[1])[0]-1;}
+  return{path,X};
+}
+function cityStop(n){
+  while(n.X&&n.xi<n.X.length&&n.X[n.xi].s<n.s-.5)n.xi++;
+  const c=n.X&&n.X[n.xi];if(!c||c.s-n.s>140)return null;
+  const st=cLight(c.n,c.axis);
+  if(st==='G')return null;
+  if(st==='Y'){const d=c.s-n.s-VT[n.type].len/2;return d>n.v*1.4?c.s:null;}
+  if(st==='F'){if(c.go)return null;const d=c.s-n.s-VT[n.type].len/2;if(d<3&&n.v<.4){c.wt=(c.wt||0)+1/30;if(c.wt>1.5)c.go=true;}return c.s;}
+  return c.s;
+}
+const CMIX={sedan:5,suv:3,pickup:3,van:2,box:1,semi:1,police:.3,moto:.6};
+function citySpawnCar(minD,maxD){
+  const s=G.s,N=Object.values(CITY.nodes).filter(n=>{const d=Math.hypot(n.x-s.x,n.y-s.y);return d>minD&&d<maxD;});if(!N.length)return;
+  const n=N[Math.floor(Math.random()*N.length)],ds=CDIRS.filter(d=>cNbr(n,d));if(!ds.length)return;
+  const r=cityRoute(n,ds[Math.floor(Math.random()*ds.length)],40);if(!r)return;
+  const p0=r.path.pts[0];if(BLK.some(b=>!b.ped&&Math.hypot(b.cx-p0.x,b.cy-p0.y)<b.hl+b.hw+20))return;
+  const type=pickW(CMIX),c=mkCar(type,r.path,0,rnd(28,36)/MPH,{X:r.X,xi:0,stopAt:cityStop,city:1});c.v=c.v0*.6;
+  if(type==='police'){c.paint='#2e3338';}NPCS.push(c);
+}
+// BLUE PHONE: pedestrians walk corner to corner and only step into the crosswalk on their light
+function cityPedNext(p){
+  const n=cNode(p.ni,p.nj);const opts=[];
+  opts.push({k:'x'});opts.push({k:'y'});
+  const ex=cNbr(n,[p.sx,0]);if(ex)opts.push({k:'ax',m:ex});const ey=cNbr(n,[0,p.sy]);if(ey)opts.push({k:'ay',m:ey});
+  if(ex)opts.push({k:'ax',m:ex});if(ey)opts.push({k:'ay',m:ey});
+  const o=opts[Math.floor(Math.random()*opts.length)];
+  if(o.k==='x'){p.sx=-p.sx;p.wl={n,axis:'EW'};}else if(o.k==='y'){p.sy=-p.sy;p.wl={n,axis:'NS'};}
+  else if(o.k==='ax'){p.ni=o.m.i;p.nj=o.m.j;p.sx=-p.sx;p.wl=null;}else{p.ni=o.m.i;p.nj=o.m.j;p.sy=-p.sy;p.wl=null;}
+  const m=cNode(p.ni,p.nj);p.tx=m.x+p.sx*(CRW+5)+rnd(-1.5,1.5);p.ty=m.y+p.sy*(CRW+5)+rnd(-1.5,1.5);p.waitT=0;
+}
+function cityLife(){
+  cityPowerCheck();
+  for(let k=0;k<30;k++)citySpawnCar(150,800);
+  for(const L of CITY.lots)for(let k=0;k<L.n;k++){if(hsh(k,Math.round(L.x0))%4===0)continue;const cols=Math.max(1,Math.floor((L.x1-L.x0)/10)),c=k%cols,r=Math.floor(k/cols)%2;
+    const x=L.x0+5+c*10,y=r?L.y1-9:L.y0+9;if(x>L.x1-4)continue;const type=pickW({sedan:4,suv:3,pickup:2,van:1}),paint=PAINTS[Math.floor(Math.random()*PAINTS.length)],c1=col(paint);
+    NPCS.push({id:++nid,kind:'pk',type,x,y,th:r?-Math.PI/2:Math.PI/2,ph:0,v:0,paint,c1,c2:shadeU(c1,.72),hp:VT[type].mass/120,label:'parked '+VT[type].label});}
+  const N=Object.values(CITY.nodes);
+  for(let k=0;k<44;k++){const n=N[Math.floor(Math.random()*N.length)],sx=Math.random()<.5?1:-1,sy=Math.random()<.5?1:-1;
+    const vest=Math.random()<.18?(Math.random()<.5?'y':'o'):null,p=mkPed(n.x+sx*(CRW+5),n.y+sy*(CRW+5),{role:'city',ni:n.i,nj:n.j,sx,sy,vest,hat:vest?'#f7f5ef':null,
+      shirt:['#2a62b0','#c8362b','#3f8a3f','#8a5a9e','#f2c230','#5f6469','#d9822b','#2e3338'][k%8],speed:rnd(3.2,4.8)});p.idle=rnd(0,4);cityPedNext(p);PEDS.push(p);}
+  CITY.spT=0;CITY.pwT=0;CITY.redT={};CITY.inNode=null;CITY.spdT=0;CITY.potT=0;
+}
+function cityTick(dt){
+  const s=G.s;
+  CITY.pwT-=dt;if(CITY.pwT<=0){CITY.pwT=1;cityPowerCheck();}
+  CITY.spT-=dt;if(CITY.spT<=0){CITY.spT=.8;const cnt=NPCS.filter(n=>n.city&&!n.dead).length;if(cnt<30)citySpawnCar(260,800);}
+  NPCS=NPCS.filter(n=>!(n.city&&nDist(n)>1150));
+  // BLUE PHONE: running a red light at a working signal
+  const fx=s.x+Math.cos(s.th)*TRK.bumper,fy=s.y+Math.sin(s.th)*TRK.bumper;let inN=null;
+  for(const k in CITY.nodes){const n=CITY.nodes[k];if(Math.abs(fx-n.x)<CRW&&Math.abs(fy-n.y)<CRW){inN=n;break;}}
+  if(inN&&inN!==CITY.inNode&&s.v>3/MPH){const axis=Math.abs(Math.cos(s.th))>Math.abs(Math.sin(s.th))?'EW':'NS',st=cLight(inN,axis);
+    if(st==='R')penalize('red'+inN.k,75,'Ran a red light',5);}
+  CITY.inNode=inN;
+  const mph=Math.abs(s.v)*MPH;if(mph>38){CITY.spdT+=dt;if(CITY.spdT>2.5){penalize('cspd',20,'Speeding. City limit is 35',6);CITY.spdT=0;}}else CITY.spdT=0;
+  // BLUE PHONE: sparks off downed lines, water out of busted hydrants, a thump rolling over a fallen pole
+  const st=dstore(),T=tnow();
+  for(const o of OBST){if(Math.abs(o.cx-G.camX)>300||Math.abs(o.cy-G.camY)>420)continue;
+    if(o.type==='hydrant'&&isBroken(o)){for(let k=0;k<3;k++)parts.push({x:o.cx+rnd(-1,1),y:o.cy+rnd(-1,1),vx:rnd(-9,9),vy:rnd(-9,9),life:rnd(.5,1.1),c:Math.random()<.5?PAL.wet:PAL.signW});}
+    if(o.type==='tpole'&&isBroken(o)){const r=st.obs[o.id],fa=r.fa||0;if(T-r.t<120&&Math.random()<.35){const tx=o.cx+Math.cos(fa)*27,ty=o.cy+Math.sin(fa)*27;
+      for(let k=0;k<3;k++)parts.push({x:tx,y:ty,vx:rnd(-14,14),vy:rnd(-14,14),life:rnd(.15,.4),c:Math.random()<.5?PAL.amber:PAL.signW});if(Math.random()<.08&&Math.hypot(tx-s.x,ty-s.y)<160)tone(1800+Math.random()*900,.05,'square',.03);}}}
+  CITY.potT-=dt;if(CITY.potT<=0&&mph>3){const ax=s.x+Math.cos(s.th)*TRK.L,ay=s.y+Math.sin(s.th)*TRK.L;
+    for(const o of CITY.down||[]){if(o.type!=='tpole')continue;const r=st.obs[o.id];if(!r)continue;const fa=r.fa||0,dx=ax-o.cx,dy=ay-o.cy,u=dx*Math.cos(fa)+dy*Math.sin(fa),v=-dx*Math.sin(fa)+dy*Math.cos(fa);
+      if(u>0&&u<30&&Math.abs(v)<4){G.shake=Math.max(G.shake,.25);tone(55,.15,'square',.1,35);CITY.potT=.6;break;}}}
+}
+function fbLine(x0,y0,x1,y1,c){const[a,b]=toB(x0,y0),[e,f]=toB(x1,y1),n=Math.ceil(Math.max(Math.abs(e-a),Math.abs(f-b)));if(n>2000)return;
+  for(let i=0;i<=n;i++){const x=Math.round(a+(e-a)*i/n),y=Math.round(b+(f-b)*i/n);if(x>=0&&y>=0&&x<bufW&&y<bufH)fb[y*bufW+x]=c;}}
+function poleTop(o){const st=dstore(),r=st.obs[o.id];if(isBroken(o)){const fa=(r&&r.fa)||0;return[o.cx+Math.cos(fa)*26,o.cy+Math.sin(fa)*26,true];}return[o.cx,o.cy,false];}
+function cityDrawUnder(){
+  const st=dstore(),x0=G.camX-260,x1=G.camX+260,y0=G.camY-420,y1=G.camY+420;
+  for(const o of OBST){if(o.cx<x0-40||o.cx>x1+40||o.cy<y0-40||o.cy>y1+40)continue;
+    if((o.type==='tpole'||o.type==='tree')&&isBroken(o)){const r=st.obs[o.id],fa=(r&&r.fa)||0,c=Math.cos(fa),s=Math.sin(fa);
+      if(o.type==='tpole'){fillOBB(o.cx+c*15,o.cy+s*15,fa,15,.55,PAL.poleW);fillOBB(o.cx+c*26,o.cy+s*26,fa+Math.PI/2,3.5,.35,PAL.poleW);fillOBB(o.cx+c*21,o.cy+s*21,0,.9,.9,PAL.tower2);}
+      else{fillOBB(o.cx+c*7,o.cy+s*7,fa,7,.9,PAL.poleW);for(const[k,cc]of[[13,PAL.treeB],[17,PAL.treeA],[11,PAL.treeC]])fillOBB(o.cx+c*k,o.cy+s*k,fa+k,4.5,3.5,cc);}}
+    else if(o.type==='tree'){const k=hsh(Math.round(o.cx),Math.round(o.cy));fillOBB(o.cx,o.cy,k,6,6,PAL.treeB);fillOBB(o.cx,o.cy,k+.8,5.5,5.5,PAL.treeA);fillOBB(o.cx-1,o.cy-1,k,3,3,PAL.treeC);}
+    else if(o.type==='tpole'){fillOBB(o.cx,o.cy,0,.6,.6,PAL.poleW);}
+    else if(o.type==='sig'){fillOBB(o.cx,o.cy,0,.7,.7,PAL.sigH);}
+    else if(o.type==='hydrant'&&!isBroken(o)){fillOBB(o.cx,o.cy,0,.6,.6,PAL.hydr);fillOBB(o.cx,o.cy,0,.25,.25,PAL.signW);}}
+}
+function cityDrawOver(){
+  const x0=G.camX-260,x1=G.camX+260,y0=G.camY-420,y1=G.camY+420;
+  // BLUE PHONE: overhead wire between poles. a fallen pole drags its wire down to the street
+  for(const L of CITY.lines)for(let k=0;k<L.length-1;k++){const a=OBI[L[k]],b=OBI[L[k+1]];if(!a||!b)continue;
+    if(Math.max(a.cx,b.cx)<x0||Math.min(a.cx,b.cx)>x1||Math.max(a.cy,b.cy)<y0||Math.min(a.cy,b.cy)>y1)continue;
+    const[ax,ay,af]=poleTop(a),[bx,by,bf]=poleTop(b);fbLine(ax,ay,bx,by,PAL.wire);if(!af&&!bf){fbLine(ax+.6,ay+.6,bx+.6,by+.6,PAL.wire);fillOBB(ax,ay,Math.atan2(by-ay,bx-ax)+Math.PI/2,2.6,.3,PAL.poleW);}}
+  // BLUE PHONE: signal heads hang over the far side of each approach
+  for(const k in CITY.nodes){const n=CITY.nodes[k];if(n.x<x0-30||n.x>x1+30||n.y<y0-30||n.y>y1+30)continue;
+    for(const d of CDIRS){if(!cNbr(n,[-d[0],-d[1]]))continue;const r=rn(d),cx=n.x+d[0]*(CRW+1)+r[0]*9,cy=n.y+d[1]*(CRW+1)+r[1]*9,ang=Math.atan2(r[1],r[0]);
+      const stt=cLight(n,d[0]?'EW':'NS');fillOBB(cx,cy,ang,3.4,.9,PAL.sigH);const slot=stt==='G'?2.1:stt==='Y'?0:-2.1;fillOBB(cx+r[0]*slot,cy+r[1]*slot,0,.75,.75,cLightCol(stt));}}
+}
+function cityFp(add,cx,cy,R){
+  const st=dstore();
+  for(const o of OBST){if(Math.abs(o.cx-cx)>R||Math.abs(o.cy-cy)>R)continue;
+    if((o.type==='tpole'||o.type==='tree')&&isBroken(o)){const r=st.obs[o.id],fa=(r&&r.fa)||0,L=o.type==='tpole'?15:9;add({cx:o.cx+Math.cos(fa)*L,cy:o.cy+Math.sin(fa)*L,ang:fa,hl:L,hw:o.type==='tpole'?.6:3},0,o.type==='tpole'?1.2:3.5,o.type==='tpole'?PAL.poleW:PAL.treeA);}
+    else if(o.type==='tree')add({cx:o.cx,cy:o.cy,ang:.4,hl:5.5,hw:5.5},8,22,PAL.treeA,PAL.treeC);
+    else if(o.type==='tpole'&&!isBroken(o))add({cx:o.cx,cy:o.cy,ang:0,hl:3,hw:.3},27,28,PAL.poleW);}
+  for(const k in CITY.nodes){const n=CITY.nodes[k];if(Math.abs(n.x-cx)>R||Math.abs(n.y-cy)>R)continue;
+    for(const d of CDIRS){if(!cNbr(n,[-d[0],-d[1]]))continue;const r=rn(d),stt=cLight(n,d[0]?'EW':'NS');
+      add({cx:n.x+d[0]*(CRW+1)+r[0]*9,cy:n.y+d[1]*(CRW+1)+r[1]*9,ang:Math.atan2(d[1],d[0]),hl:.6,hw:1.2},15,18.5,cLightCol(stt));}}
 }
 
 function updateSink(name,si,dt,lf){
@@ -1882,7 +2149,7 @@ function update(dt){
     const traction=sD.mu*32.2*(w.drive/w.gvw);
     let want=G.throttle*aMax;
     if(!brk&&dir*s.v<2.2)want=Math.max(want,1.6);
-    if(dir*s.v>=(dir>0?(MAP.proc?102.7:36.7):5.9))want=0;
+    if(dir*s.v>=(dir>0?(MAP.proc?102.7:(MAP.vmax||36.7)):5.9))want=0;
     accel=dir*Math.min(want,traction);
   }
   let res=.35+sF.roll*.3+sD.roll*.5;
@@ -2194,7 +2461,7 @@ function render(){
   const s=G.s,ch=chain(s);let tx,ty;
   if(s.coupled){const[rx,ry]=rearOf(ch[ch.length-1]);tx=(s.x+Math.cos(s.th)*TRK.bumper+rx)/2;ty=(s.y+Math.sin(s.th)*TRK.bumper+ry)/2;}
   else{tx=s.x+Math.cos(s.th)*6;ty=s.y+Math.sin(s.th)*6;}
-  if(MAP.proc){const la=clamp(Math.abs(s.v)*1.1,0,140);tx+=Math.cos(s.th)*la;ty+=Math.sin(s.th)*la;}   // BLUE PHONE: look ahead at speed
+  if(MAP.proc||MAP.city){const la=clamp(Math.abs(s.v)*(MAP.city?.8:1.1),0,140);tx+=Math.cos(s.th)*la;ty+=Math.sin(s.th)*la;}   // BLUE PHONE: look ahead at speed
   // BLUE PHONE: camera modes. Cab looks ahead of the bumper, Rear looks past the back of the last trailer,
   // BLUE PHONE: Whole frames the rig, Auto picks Cab or Rear by gear when the rig is too long to frame. drag offset rides on top
   {const hx=Math.cos(s.th),hy=Math.sin(s.th),vf=(Math.abs(hx)*bufW+Math.abs(hy)*bufH*.6)/PPF,bx=s.x+hx*TRK.bumper,by=s.y+hy*TRK.bumper;let rx=s.x+hx*TRK.tail,ry=s.y+hy*TRK.tail,rd=[-hx,-hy];
@@ -2219,13 +2486,14 @@ function render(){
     if(x1>x0)fb.set(world.subarray(wy*WPX+camPX+x0,wy*WPX+camPX+x1),row+x0);
   }}
   if(MAP.proc)drawHwGround();
-  drawScars();drawDebris();drawWrecks();drawTarget();drawCones();drawCrews();if(MAP.proc)drawHwObst();drawNpcs();drawPeds();drawWatch();drawGuide();
+  drawScars();drawDebris();drawWrecks();drawTarget();drawCones();drawCrews();if(MAP.proc)drawHwObst();if(MAP.city)cityDrawUnder();drawNpcs();drawPeds();drawWatch();drawGuide();
   drawTractorLower();
   for(let i=ch.length-1;i>=0;i--)drawUnit(ch[i],false);
   drawTractorUpper();
   for(const c of ch)drawUnit(c,true);
   drawSlip();
   for(const p of parts)dot2(p.x,p.y,p.c);
+  if(MAP.city)cityDrawOver();
   drawChunks();
   bctx.putImageData(img,0,0);
   vctx.imageSmoothingEnabled=false;
@@ -2265,11 +2533,11 @@ function drawSpeedo(){
   const S=84;if(spC.width!==Math.round(S*dpr)){spC.width=Math.round(S*dpr);spC.height=Math.round(S*dpr);}
   const x=spX;x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,S,S);
   x.fillStyle='#eceae3';x.strokeStyle='#9d9a8f';x.lineWidth=1.5;x.beginPath();x.arc(42,42,40,0,Math.PI*2);x.fill();x.stroke();
-  const a0=Math.PI*.75,a1=Math.PI*2.25,max=MAP&&MAP.proc?80:25,mph=Math.abs(G.s.v)*MPH;
+  const a0=Math.PI*.75,a1=Math.PI*2.25,max=MAP&&MAP.proc?80:(MAP&&MAP.speedo)||25,mph=Math.abs(G.s.v)*MPH;
   x.strokeStyle='#dedbd1';x.lineWidth=6;x.beginPath();x.arc(42,42,31,a0,a1);x.stroke();
   x.strokeStyle='#f2c230';x.beginPath();x.arc(42,42,31,a0,a0+(a1-a0)*Math.min(1,mph/max));x.stroke();
   x.fillStyle='#5f6469';x.font='700 8px '+UIF;x.textAlign='center';x.textBaseline='middle';
-  const stp=max>40?20:5;for(let m=stp;m<max;m+=stp){const a=a0+(a1-a0)*m/max;x.fillText(String(m),42+Math.cos(a)*21,42+Math.sin(a)*21);}
+  const stp=max>60?20:max>30?10:5;for(let m=stp;m<max;m+=stp){const a=a0+(a1-a0)*m/max;x.fillText(String(m),42+Math.cos(a)*21,42+Math.sin(a)*21);}
   const na=a0+(a1-a0)*Math.min(1,mph/max);x.strokeStyle='#c8362b';x.lineWidth=2.5;x.beginPath();x.moveTo(42,42);x.lineTo(42+Math.cos(na)*30,42+Math.sin(na)*30);x.stroke();
   x.fillStyle='#2e3338';x.beginPath();x.arc(42,42,3,0,Math.PI*2);x.fill();
   x.font='800 15px '+UIF;x.fillText(mph.toFixed(1),42,63);
@@ -2451,6 +2719,7 @@ function swatch(kind,key){
   if(kind==='cfg'){const m={van:'<rect x="7" y="2" width="16" height="52" fill="#f1ede3" stroke="#8e8676"/>',doubles:'<rect x="7" y="2" width="16" height="24" fill="#f1ede3" stroke="#8e8676"/><rect x="7" y="30" width="16" height="24" fill="#f1ede3" stroke="#8e8676"/>',
     blade:'<path d="M12 2 L18 2 L20 14 L17 54 L15 54 Z" fill="#f6f7f5" stroke="#aeb3b6"/>',lowboy:'<rect x="5" y="2" width="20" height="52" fill="#8e8a80"/><rect x="6" y="14" width="18" height="22" fill="#e07a1f"/><rect x="13" y="2" width="4" height="14" fill="#e07a1f"/>'}[key];return '<svg class="sw" viewBox="0 0 30 56">'+m+'</svg>';}
   if(kind==='len')return '<svg class="sw" viewBox="0 0 30 56"><rect x="8" y="2" width="14" height="52" fill="#aaa79f"/>'+(key==='short'?'<rect x="14" y="36" width="2" height="10" fill="#f7f5ef"/>':key==='long'?'<rect x="14" y="6" width="2" height="10" fill="#f7f5ef"/><rect x="14" y="22" width="2" height="10" fill="#f7f5ef"/><rect x="14" y="38" width="2" height="10" fill="#f7f5ef"/>':'<circle cx="15" cy="28" r="6" fill="none" stroke="#f7f5ef" stroke-width="2"/>')+'</svg>';
+  if(key==='city')return '<svg class="sw" viewBox="0 0 30 56"><rect x="0" y="0" width="30" height="56" fill="#c9c2b2"/><rect x="9" y="0" width="5" height="56" fill="#aaa79f"/><rect x="0" y="18" width="30" height="5" fill="#aaa79f"/><rect x="0" y="40" width="30" height="5" fill="#aaa79f"/><rect x="16" y="25" width="10" height="12" fill="#8e8a80"/><rect x="1" y="25" width="6" height="12" fill="#a3bd72"/><circle cx="15" cy="20" r="1.2" fill="#2fd16a"/></svg>';
   if(key==='highway')return '<svg class="sw" viewBox="0 0 30 56"><rect x="0" y="0" width="30" height="56" fill="#d8c9a2"/><rect x="3" y="0" width="10" height="56" fill="#aaa79f"/><rect x="17" y="0" width="10" height="56" fill="#aaa79f"/><rect x="7.5" y="4" width="1" height="8" fill="#f7f5ef"/><rect x="7.5" y="24" width="1" height="8" fill="#f7f5ef"/><rect x="7.5" y="44" width="1" height="8" fill="#f7f5ef"/><rect x="19" y="30" width="6" height="10" fill="#2a62b0"/></svg>';
   return '<svg class="sw" viewBox="0 0 30 56">'+(key==='yard'?'<rect x="2" y="2" width="26" height="14" fill="#d9d4c6"/><rect x="6" y="12" width="5" height="4" fill="#7d9cb0"/><rect x="19" y="12" width="5" height="4" fill="#7d9cb0"/><rect x="2" y="16" width="26" height="38" fill="#aaa79f"/>':'<rect x="2" y="2" width="26" height="52" fill="#d8c9a2"/><path d="M6 54 V30 H24 V6" stroke="#aaa79f" stroke-width="6" fill="none"/><circle cx="9" cy="10" r="3" fill="#9c9c98"/>')+'</svg>';
 }
