@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>gladhand dockyard v8</title>
+<title>gladhand dockyard v9</title>
 <!--
 RED PHONE: trailer backing sim v5
 RED PHONE: v4 written on the Red phone in chat with Claude Opus 5.5, Oct 11 2026 (single van, dock yard, inspection, air lines, magnetic coupling)
@@ -23,6 +23,7 @@ BLUE PHONE: v8 adds: yard traffic, forklifts hauling pallets, a yard truck that 
 BLUE PHONE: people on foot with reflective vests on the workers, flaggers running the work zone, county road traffic, potholes,
 BLUE PHONE: and the highway: endless interstate with lane changing traffic, cut-ins, brake checks, jams, debris, work zones,
 BLUE PHONE: ambulances, merging cars, crosswinds, wet pavement, pileups, and short, long, or endless runs
+BLUE PHONE: v9 adds: camera control. drag the map to look around, pinch to zoom, double tap to recenter, Cam button for Auto, Cab, Rear, Whole rig
 -->
 <style>
 /* RED PHONE: palette from the truck yard. light concrete panels, safety yellow, DOT red, glad hand blue. no dark backgrounds */
@@ -224,6 +225,7 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
     <button class="sbtn" id="bRig">Rig</button>
     <button class="sbtn on" id="bGuide">Guide</button>
     <button class="sbtn" id="bZoom">Zoom</button>
+    <button class="sbtn" id="bCam">Auto</button>
     <button class="sbtn hide" id="bWatch">Watch</button>
     <button class="sbtn" id="bHorn">Horn</button>
     <button class="sbtn on" id="bSnd">Sound</button>
@@ -1883,7 +1885,7 @@ function showCard(g,t,d,stay,red){
 const view=$('view'),vctx=view.getContext('2d');
 const buf=document.createElement('canvas'),bctx=buf.getContext('2d');
 let bufW=1,bufH=1,img=null,fb=null,scaleS=4,dpr=1,camPX=0,camPY=0;
-const ZOOMS=[110,150,210,300];
+const ZOOMS=[70,90,110,150,210,300,420];
 function resize(){
   dpr=Math.min(3,window.devicePixelRatio||1);
   view.width=Math.max(1,Math.round(innerWidth*dpr));view.height=Math.max(1,Math.round(innerHeight*dpr));
@@ -2028,6 +2030,13 @@ function render(){
   if(s.coupled){const[rx,ry]=rearOf(ch[ch.length-1]);tx=(s.x+Math.cos(s.th)*TRK.bumper+rx)/2;ty=(s.y+Math.sin(s.th)*TRK.bumper+ry)/2;}
   else{tx=s.x+Math.cos(s.th)*6;ty=s.y+Math.sin(s.th)*6;}
   if(MAP.proc){const la=clamp(Math.abs(s.v)*1.1,0,140);tx+=Math.cos(s.th)*la;ty+=Math.sin(s.th)*la;}   // BLUE PHONE: look ahead at speed
+  // BLUE PHONE: camera modes. Cab looks ahead of the bumper, Rear looks past the back of the last trailer,
+  // BLUE PHONE: Whole frames the rig, Auto picks Cab or Rear by gear when the rig is too long to frame. drag offset rides on top
+  {const hx=Math.cos(s.th),hy=Math.sin(s.th),vf=(Math.abs(hx)*bufW+Math.abs(hy)*bufH*.6)/PPF,bx=s.x+hx*TRK.bumper,by=s.y+hy*TRK.bumper;let rx=s.x+hx*TRK.tail,ry=s.y+hy*TRK.tail,rd=[-hx,-hy];
+    if(s.coupled){const c=ch[ch.length-1];[rx,ry]=rearOf(c);rd=[-c.c,-c.s];}
+    const len=Math.hypot(bx-rx,by-ry);let m=G.cam||'auto';if(m==='auto')m=len>vf*.55?(G.gear==='R'?'rear':'cab'):'whole';
+    if(m==='cab'){tx=bx+hx*vf*.25;ty=by+hy*vf*.25;}else if(m==='rear'){tx=rx+rd[0]*vf*.18;ty=ry+rd[1]*vf*.18;}
+    tx+=G.camOff.x;ty+=G.camOff.y;}
   const wr=G.watch&&NPCS.find(n=>n.kind==='rig');if(wr){const[rx,ry]=rigRear(wr);tx=(wr.x+Math.cos(wr.th)*wr.T.bumper+rx)/2;ty=(wr.y+Math.sin(wr.th)*wr.T.bumper+ry)/2;}
   if(!G.camInit){G.camX=tx;G.camY=ty;G.camInit=true;}
   G.camX+=(tx-G.camX)*.08;G.camY+=(ty-G.camY)*.08;
@@ -2195,6 +2204,22 @@ function setupInput(){
   $('bGuide').addEventListener('click',()=>{G.guide=!G.guide;$('bGuide').classList.toggle('on',G.guide);});
   $('bWatch').addEventListener('click',()=>{G.watch=!G.watch;$('bWatch').classList.toggle('on',G.watch);if(G.watch&&!NPCS.some(n=>n.kind==='rig'))G.watch=false;});
   $('bZoom').addEventListener('click',()=>{G.zoom=(G.zoom+1)%ZOOMS.length;resize();});
+  const CAMS=['auto','cab','rear','whole'],CAML={auto:'Auto',cab:'Cab',rear:'Rear',whole:'Whole'};
+  try{const c=localStorage.getItem('tbs-cam');if(CAMS.includes(c))G.cam=c;}catch(e){}
+  if(!G.cam)G.cam='auto';$('bCam').textContent=CAML[G.cam];
+  $('bCam').addEventListener('click',()=>{G.cam=CAMS[(CAMS.indexOf(G.cam)+1)%CAMS.length];G.camOff={x:0,y:0};$('bCam').textContent=CAML[G.cam];
+    try{localStorage.setItem('tbs-cam',G.cam);}catch(e){}msg({auto:'Camera follows the cab or the rear by gear',cab:'Camera looks ahead of the cab',rear:'Camera looks behind the trailer',whole:'Camera frames the whole rig'}[G.cam],2);});
+  // BLUE PHONE: touch the map itself. one finger pans, two fingers pinch zoom, double tap recenters
+  const vp=new Map();let pinch0=0,zoom0=0,lastTapV=0;
+  view.addEventListener('pointerdown',e=>{e.preventDefault();try{view.setPointerCapture(e.pointerId);}catch(_){ }vp.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(vp.size===2){const[a,b]=[...vp.values()];pinch0=Math.hypot(a.x-b.x,a.y-b.y);zoom0=G.zoom;}
+    if(vp.size===1){const n=performance.now();if(n-lastTapV<300){G.camOff={x:0,y:0};msg('Camera recentered',1.2);}lastTapV=n;}});
+  view.addEventListener('pointermove',e=>{const p=vp.get(e.pointerId);if(!p)return;const dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;
+    if(vp.size===1){const k=dpr/scaleS/PPF;G.camOff.x=clamp(G.camOff.x-dx*k,-500,500);G.camOff.y=clamp(G.camOff.y-dy*k,-500,500);G.camX-=dx*k;G.camY-=dy*k;}
+    else if(vp.size===2&&pinch0>0){const[a,b]=[...vp.values()],d=Math.max(1,Math.hypot(a.x-b.x,a.y-b.y)),z=clamp(zoom0+Math.round(Math.log(pinch0/d)/Math.log(1.3)),0,ZOOMS.length-1);
+      if(z!==G.zoom){G.zoom=z;resize();}}});
+  const vEnd=e=>{vp.delete(e.pointerId);if(vp.size<2)pinch0=0;};
+  view.addEventListener('pointerup',vEnd);view.addEventListener('pointercancel',vEnd);
   $('bHorn').addEventListener('click',()=>{horn();if(Math.random()<.3)msg('The goat has spoken');});
   const setSnd=v=>{sndOn=v;try{localStorage.setItem('tbs-snd',v?'1':'0');}catch(e){}$('bSnd').classList.toggle('on',v);$('bMute').textContent=v?'Sound on':'Sound off';if(v)ac();};
   $('bSnd').addEventListener('click',()=>setSnd(!sndOn));$('bMute').addEventListener('click',()=>setSnd(!sndOn));setSnd(sndOn);
@@ -2296,7 +2321,8 @@ function setupRun(){
   TRK=TRACTORS[G.trk];
   if(builtMap!==G.map||MAPS[G.map].proc){loadMap(G.map);builtMap=G.map;}else resetCones();
   U=makeUnits(G.cfg);
-  G.zoom=MAP.proc?3:G.cfg==='blade'?3:G.cfg==='doubles'||G.cfg==='lowboy'?2:1;
+  G.zoom=MAP.proc?5:G.cfg==='blade'?5:G.cfg==='doubles'||G.cfg==='lowboy'?4:3;G.camOff={x:0,y:0};
+  try{if(!localStorage.getItem('tbs-camtip')){localStorage.setItem('tbs-camtip','1');setTimeout(()=>msg('Drag the map to look around. Pinch to zoom. Double tap to recenter',5),4500);}}catch(e){}
   G.score=1000;G.runPen=0;G.scoreF=0;G.cool={};G.bias=.35;G.lastDoor=null;G.cardUntil=0;parts=[];chunks=[];
   startPose();resize();setupInput();initWorld();
   $('rsBox').classList.toggle('on',U.some(u=>u.steer));
