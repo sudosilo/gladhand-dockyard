@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>gladhand dockyard v9</title>
+<title>gladhand dockyard v10</title>
 <!--
 RED PHONE: trailer backing sim v5
 RED PHONE: v4 written on the Red phone in chat with Claude Opus 5.5, Oct 11 2026 (single van, dock yard, inspection, air lines, magnetic coupling)
@@ -24,6 +24,9 @@ BLUE PHONE: people on foot with reflective vests on the workers, flaggers runnin
 BLUE PHONE: and the highway: endless interstate with lane changing traffic, cut-ins, brake checks, jams, debris, work zones,
 BLUE PHONE: ambulances, merging cars, crosswinds, wet pavement, pileups, and short, long, or endless runs
 BLUE PHONE: v9 adds: camera control. drag the map to look around, pinch to zoom, double tap to recenter, Cam button for Auto, Cab, Rear, Whole rig
+BLUE PHONE: v10 adds: Driver camera, a first person view from the cab with a hood, dash and two working mirrors,
+BLUE PHONE: and the dock yard doubled each way: container terminal, rail spur, a cross dock with ten more doors facing north,
+BLUE PHONE: a fuel island, a truck scale, truck parking, more traffic, more forklifts and more people
 -->
 <style>
 /* RED PHONE: palette from the truck yard. light concrete panels, safety yellow, DOT red, glad hand blue. no dark backgrounds */
@@ -79,6 +82,7 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 #game{position:fixed;inset:0;display:none}
 #game.on{display:block}
 #view{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;background:#d8c9a2}
+#fp{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;background:#bcd6ea;display:none;touch-action:none}
 
 #top{position:absolute;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top,0px) + 8px) 8px 0;display:flex;align-items:flex-start;gap:6px;pointer-events:none}
 #air{display:flex;gap:5px;pointer-events:auto}
@@ -198,6 +202,7 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 <!-- RED PHONE: driving screen -->
 <div id="game">
   <canvas id="view"></canvas>
+  <canvas id="fp"></canvas>
 
   <div id="top">
     <div id="air">
@@ -460,7 +465,7 @@ const PAL={};
  ['amber','#f2a01c'],['stripe','#2a62b0'],['brakeL','#ff3b2f'],['brakeD','#9a3a32'],['headL','#fff3b0'],['vestY','#d4f03c'],['vestO','#ff7a1a'],['refl','#eef3f5'],
  ['legs','#4a4741'],['stopR','#d8261c'],['shl','#a29f97'],['shl2','#99968d'],['rumb','#8a877f'],['pot1','#6a655d'],['pot2','#57524a'],['scrub','#8c9a5b'],['scrub2','#a4ad6c'],
  ['post','#3f8a3f'],['signG','#2f7a45'],['signW','#f7f5ef'],['polB','#2e3338'],['sirR','#ff2a1f'],['sirB','#2f6bff'],['forkD','#5c5a54'],['palletL','#c7a46d'],
- ['ladder','#b9bcbe'],['matt','#f3f1ea'],['mattB','#7da0c8'],
+ ['ladder','#b9bcbe'],['ctrR','#b5523b'],['ctrB','#3f6fa8'],['ctrG','#4f8a5b'],['ctrO','#d9822b'],['ctrW','#e8e6df'],['ctrT','#3f9a9a'],['ctrY','#d9b23a'],['ballast','#9a9182'],['tie','#6e5640'],['railcar','#8a4b33'],['canopy','#e9e7e1'],['matt','#f3f1ea'],['mattB','#7da0c8'],
  ['rubble','#8a8377'],['rubble2','#6b655b'],['scorch','#57524a'],['dent','#5f5a52'],['newFence','#c9c2b2'],
  ['wreck','#5c574f'],['wreck2','#7a7368'],['smokeD','#8f8b82'],['fire','#e8662a'],['vest','#ee7a22'],['helmet','#fbfaf5'],['good','#3f8a3f']
 ].forEach(([k,v])=>PAL[k]=col(v));
@@ -475,7 +480,7 @@ function pothole(cx,cy,r){for(let y=Math.floor(cy-r);y<=Math.ceil(cy+r);y++)for(
   if(d<1-hsh(x,y)/400&&(s===S_ASP||s===S_CON||s===S_GRV||s===S_WET))surf[i]=S_POT;}}
 function surfAt(x,y){if(MAP&&MAP.proc)return hwSurf(x,y);const ix=Math.floor(x),iy=Math.floor(y);if(ix<0||iy<0||ix>=W||iy>=H)return S_DES;return surf[iy*W+ix];}
 // BLUE PHONE: how much hit each kind of structure takes before it breaks open. anything not listed never breaks
-const BRK={wall:18,rail:45,pole:18,sign:8,shack:60,dock:30,pallet:6,debrisH:4,board:25};
+const BRK={wall:18,rail:45,pole:18,sign:8,shack:60,dock:30,pallet:6,debrisH:4,board:25,pump:15};
 function addOb(x,y,w,h,type,label,tall){OBST.push({id:'o'+(oid++),type,label,tall:!!tall,cx:x+w/2,cy:y+h/2,ang:0,hl:w/2,hw:h/2,hp:BRK[type]||9999});}
 function ob(x,y,w,h,type,label,tall){
   // BLUE PHONE: long fences and rails split into short panels so a crash breaks one panel, not the whole line
@@ -520,35 +525,69 @@ function paintTower(x,y){
 // RED PHONE: map 1, the dock yard from v4
 // =====================================================================
 function buildYard(){
-  surf.fill(S_DES);zone(2,2,358,298,S_ASP);zone(0,0,360,50,S_BLD);
+  // BLUE PHONE: the original dock yard sits in the top left corner unchanged. the fences that closed it in are gone,
+  // BLUE PHONE: and the yard runs twice as far each way: container terminal east, cross dock south, fuel, scale, parking, rail
+  surf.fill(S_DES);zone(2,2,718,598,S_ASP);zone(0,0,360,50,S_BLD);
   zone(230,112,275,150,S_WET);zone(300,182,356,296,S_GRV);
   zone(90,205,190,225,S_CURB);zone(92,207,188,223,S_SOFT);
   zone(150,228,152,296,S_BUMP);zone(4,186,80,188,S_BUMP);
+  zone(398,18,690,262,S_CON);zone(698,2,718,598,S_GRV);zone(40,520,380,598,S_BLD);
+  zone(600,318,672,334,S_CON);zone(420,316,500,354,S_CON);zone(395,300,397,560,S_BUMP);
+  zone(560,520,640,560,S_WET);
   pothole(120,160,2.2);pothole(262,192,1.8);pothole(60,252,2.5);pothole(200,140,1.6);pothole(330,140,2);
-  DOORS=[];for(let i=0;i<10;i++)DOORS.push({n:i+1,x:70+i*24,parked:[2,5,6,9].includes(i+1)});
-  ob(0,0,360,2,'wall','fence');ob(0,298,360,2,'wall','fence');ob(0,0,2,300,'wall','fence');ob(358,0,2,300,'wall','fence');
-  ob(0,0,360,50,'building','building',1);
-  for(const d of DOORS){ob(d.x-5,50,10,1.2,'dock','dock');if(d.parked)ob(d.x-4.25,51.2,8.5,53,'parked','parked trailer',1);}
+  pothole(450,290,2.2);pothole(560,400,1.9);pothole(250,420,2.4);pothole(120,380,2);pothole(660,300,1.8);pothole(500,150,1.7);
+  DOORS=[];for(let i=0;i<10;i++)DOORS.push({n:i+1,x:70+i*24,y:51.2,dir:1,parked:[2,5,6,9].includes(i+1)});
+  for(let i=0;i<10;i++)DOORS.push({n:i+11,x:70+i*24,y:518.8,dir:-1,parked:[12,15,17,19].includes(i+11)});
+  ob(0,0,720,2,'wall','fence');ob(0,598,720,2,'wall','fence');ob(0,0,2,600,'wall','fence');ob(718,0,2,600,'wall','fence');
+  ob(0,0,360,50,'building','building',1);ob(40,520,340,78,'building','cross dock',1);
+  for(const d of DOORS){if(d.dir>0){ob(d.x-5,50,10,1.2,'dock','dock');if(d.parked)ob(d.x-4.25,51.2,8.5,53,'parked','parked trailer',1);}
+    else{ob(d.x-5,518.8,10,1.2,'dock','dock');if(d.parked)ob(d.x-4.25,465.8,8.5,53,'parked','parked trailer',1);}}
   ob(40,176,1.5,1.5,'pole','light pole',1);ob(205,172,1.5,1.5,'pole','light pole',1);ob(300,168,1.5,1.5,'pole','light pole',1);
   ob(165,282,16,14,'shack','guard shack',1);
-  // BLUE PHONE: pallet stacks in the staging corner for the forklifts
   for(const x of[306,314,322,330,338,346])ob(x-3,52.5,6,6,'pallet','pallet stack');for(const x of[312,321,330])ob(x-3,99,6,6,'pallet','pallet stack');
-  CONE_HOME=[[228,160],[240,160],[252,160],[264,160],[276,160],[100,197],[188,197],[312,176],[324,176],[336,176]];
+  // BLUE PHONE: container terminal. stacks one to four high, lanes between blocks
+  const CC=[PAL.ctrR,PAL.ctrB,PAL.ctrG,PAL.ctrO,PAL.ctrW,PAL.ctrT,PAL.ctrY];
+  for(const bx of[410,520,630])for(const by of[28,98,168])for(let k=0;k<6;k++){const h=hsh(bx+k*7,by)%4+1;
+    ob(bx+k*9.5,by,8,40,'container','container stack',1);const o=OBST[OBST.length-1];o.h=h*8.6;o.stack=h;o.col=CC[hsh(bx*3+k,by*5)%CC.length];}
+  for(const[x,y]of[[404,22],[404,214],[468,22],[468,214]])ob(x,y,2,2,'pole','crane leg',1);
+  // BLUE PHONE: rail spur on the east fence with boxcars
+  for(const y of[300,368,436,504])ob(703,y,10,62,'railcar','railcar',1);
+  for(const o of OBST)if(o.type==='railcar')o.col=PAL.railcar;
+  // BLUE PHONE: fuel island, scale house, light poles, parked rigs in the truck lot
+  for(const x of[432,456,480])ob(x,326,4,18,'pump','fuel pump');
+  ob(606,300,14,12,'shack','scale house',1);
+  for(const[x,y]of[[390,120],[390,240],[560,290],[690,290],[300,400],[120,440],[560,470]])ob(x,y,1.5,1.5,'pole','light pole',1);
+  for(const x of[440,482,524,608,650])ob(x-4.25,402,8.5,53,'parked','parked truck',1);
+  for(const x of[440,524,650])ob(x-4.1,457,8.2,20,'parked','parked tractor',1);
+  for(const x of[316,326,336])ob(x-3,506,6,6,'pallet','pallet stack');for(const x of[346,356])ob(x-3,488,6,6,'pallet','pallet stack');
+  CONE_HOME=[[228,160],[240,160],[252,160],[264,160],[276,160],[100,197],[188,197],[312,176],[324,176],[336,176],
+    [600,310],[612,310],[624,310],[636,310],[648,310],[660,310],[420,360],[440,360],[460,360],[480,360],[500,360]];
   paintBase();
-  wfill(0,47.5,360,50,PAL.roofEdge);
-  [[40,14],[120,22],[200,12],[280,24],[330,16]].forEach(([x,y])=>wfill(x,y,x+9,y+6,PAL.hvac));
+  wfill(0,47.5,360,50,PAL.roofEdge);wfill(40,520,380,522.5,PAL.roofEdge);
+  [[40,14],[120,22],[200,12],[280,24],[330,16],[80,560],[180,570],[300,556]].forEach(([x,y])=>wfill(x,y,x+9,y+6,PAL.hvac));
   for(const d of DOORS){
-    wfill(d.x-5.5,44.5,d.x+5.5,50,PAL.doorEdge);wfill(d.x-5,45,d.x+5,50,PAL.door);
-    const s=String(d.n);wtext(s,d.x-(s.length*4*2)/(2*PPF),36,PAL.num,2);
-    wfill(d.x-5,50,d.x+5,51.2,PAL.dockB);
-  }
-  for(let i=0;i<=10;i++){const x=58+i*24;wfill(x-.35,51.2,x+.35,118,PAL.lineY);}
+    if(d.dir>0){wfill(d.x-5.5,44.5,d.x+5.5,50,PAL.doorEdge);wfill(d.x-5,45,d.x+5,50,PAL.door);const s=String(d.n);wtext(s,d.x-(s.length*4*2)/(2*PPF),36,PAL.num,2);wfill(d.x-5,50,d.x+5,51.2,PAL.dockB);}
+    else{wfill(d.x-5.5,520,d.x+5.5,525.5,PAL.doorEdge);wfill(d.x-5,520,d.x+5,525,PAL.door);const s=String(d.n);wtext(s,d.x-(s.length*4*2)/(2*PPF),529,PAL.num,2);wfill(d.x-5,518.8,d.x+5,520,PAL.dockB);}}
+  for(let i=0;i<=10;i++){const x=58+i*24;wfill(x-.35,51.2,x+.35,118,PAL.lineY);wfill(x-.35,452,x+.35,518.8,PAL.lineY);}
   for(let x=8;x<350;x+=14)wfill(x,261.7,x+7,262.3,PAL.lineW);
-  for(const d of DOORS)if(d.parked){wfill(d.x-4.25,51.2,d.x+4.25,104.2,PAL.parkedE);wfill(d.x-3.75,51.7,d.x+3.75,103.7,PAL.parked);
-    for(const f of[8,12.2])for(const s of[-1,1])wfill(d.x+s*3.15-.85,51.2+f-1.7,d.x+s*3.15+.85,51.2+f+1.7,PAL.trlTire);}
-  wfill(0,0,360,2,PAL.fence);wfill(0,298,360,300,PAL.fence);wfill(0,0,2,300,PAL.fence);wfill(358,0,360,300,PAL.fence);
+  for(let x=8;x<700;x+=14)wfill(x,379.7,x+7,380.3,PAL.lineW);for(let y=10;y<590;y+=14)wfill(389.7,y,390.3,y+7,PAL.lineW);
+  for(const d of DOORS)if(d.parked){const y0=d.dir>0?51.2:465.8,yr=d.dir>0?51.2:518.8,sg=d.dir>0?1:-1;
+    wfill(d.x-4.25,y0,d.x+4.25,y0+53,PAL.parkedE);wfill(d.x-3.75,y0+.5,d.x+3.75,y0+52.5,PAL.parked);
+    for(const f of[8,12.2])for(const s of[-1,1])wfill(d.x+s*3.15-.85,yr+sg*f-1.7,d.x+s*3.15+.85,yr+sg*f+1.7,PAL.trlTire);}
+  for(const o of OBST){const x0=o.cx-o.hl,x1=o.cx+o.hl,y0=o.cy-o.hw,y1=o.cy+o.hw;
+    if(o.type==='container'){wfill(x0,y0,x1,y1,shadeU(o.col,.75));wfill(x0+.4,y0+.4,x1-.4,y1-.4,o.col);for(let y=y0+1.4;y<y1-1;y+=1.6)wfill(x0+.6,y,x1-.6,y+.4,shadeU(o.col,.85));
+      for(let k=0;k<o.stack;k++)wfill(x1-1.6,y0+1+k*1.4,x1-.8,y0+1.8+k*1.4,PAL.signW);}
+    if(o.type==='railcar'){wfill(x0,y0,x1,y1,shadeU(o.col,.7));wfill(x0+.5,y0+.5,x1-.5,y1-.5,o.col);for(let y=y0+3;y<y1-2;y+=6)wfill(x0+.5,y,x1-.5,y+.5,shadeU(o.col,.8));}
+    if(o.type==='pump'){wfill(x0-1,y0-1,x1+1,y1+1,PAL.concrete2);wfill(x0,y0,x1,y1,PAL.signW);wfill(x0+1,y0+3,x1-1,y0+6,PAL.stopR);wfill(x0+1,y1-6,x1-1,y1-3,PAL.stopR);}
+    if(o.type==='parked'&&o.cy>400){wfill(x0,y0,x1,y1,PAL.parkedE);wfill(x0+.5,y0+.5,x1-.5,y1-.5,o.hw>15?PAL.parked:col('#5d8bd0'));}}
+  for(let y=4;y<596;y+=2.5)wfill(700,y,716,y+.8,PAL.tie);wfill(703.5,2,704.2,598,PAL.rail);wfill(711.8,2,712.5,598,PAL.rail);
+  for(const o of OBST)if(o.type==='railcar'){const x0=o.cx-o.hl,x1=o.cx+o.hl,y0=o.cy-o.hw,y1=o.cy+o.hw;wfill(x0,y0,x1,y1,shadeU(o.col,.7));wfill(x0+.5,y0+.5,x1-.5,y1-.5,o.col);}
+  for(let x=404;x<470;x+=2)wfill(x,22,x+1,24,PAL.yellow?PAL.yellow:PAL.lineY);for(let x=404;x<470;x+=2)wfill(x,214,x+1,216,PAL.lineY);
+  for(let x=420;x<=500;x+=3)wfill(x,316,x+1.5,317,PAL.lineY);for(let x=420;x<=500;x+=3)wfill(x,353,x+1.5,354,PAL.lineY);
+  wfill(600,318,672,319,PAL.frame);wfill(600,333,672,334,PAL.frame);
+  wfill(0,0,720,2,PAL.fence);wfill(0,598,720,600,PAL.fence);wfill(0,0,2,600,PAL.fence);wfill(718,0,720,600,PAL.fence);
   for(const o of OBST)if(o.type==='pole')wfill(o.cx-o.hl,o.cy-o.hw,o.cx+o.hl,o.cy+o.hw,PAL.pole);
-  wfill(165,282,181,296,PAL.shackE);wfill(166,283,180,295,PAL.shack);
+  wfill(165,282,181,296,PAL.shackE);wfill(166,283,180,295,PAL.shack);wfill(606,300,620,312,PAL.shackE);wfill(607,301,619,311,PAL.shack);
   for(const o of OBST)if(o.type==='pallet'){wfill(o.cx-o.hl,o.cy-o.hw,o.cx+o.hl,o.cy+o.hw,PAL.wood);for(let k=-2;k<=2;k+=1.4)wfill(o.cx-o.hl+.4,o.cy+k-.35,o.cx+o.hl-.4,o.cy+k+.35,PAL.palletL);}
 }
 
@@ -611,7 +650,7 @@ function buildRoute(){
 }
 
 const MAPS={
-  yard:{name:'Dock yard',desc:'Back into the open dock doors. Pull-ups cost you.',W:360,H:300,build:buildYard,goal:'docks',
+  yard:{name:'Dock yard',desc:'Two warehouses, a container terminal and a rail spur. Back into the open doors.',W:720,H:600,build:buildYard,goal:'docks',
     spawn:{kx:236,ky:262,h:Math.PI}},
   route:{name:'Haul route',desc:'Two county roads, a bridge, a work zone. Deliver to the turbine pad.',W:900,H:700,build:buildRoute,goal:'pad',
     spawn:{kx:232,ky:590,h:0}},
@@ -836,10 +875,11 @@ function jerryRig(){
 // =====================================================================
 const DMGKEY='tbs-damage',DEBRIS_SECS=4*3600,WRECK_SECS=2*3600;
 let DMG={};try{DMG=JSON.parse(localStorage.getItem(DMGKEY)||'{}')||{};}catch(e){DMG={};}
+if(DMG.yard&&DMG.yard.ver!==2)delete DMG.yard;
 let chunks=[];
 const tnow=()=>Date.now()/1000;
 function saveDmg(){try{localStorage.setItem(DMGKEY,JSON.stringify(DMG));}catch(e){}}
-function dstore(){const k=builtMap||G.map;let st=DMG[k];if(!st)st=DMG[k]={};st.obs=st.obs||{};st.crush=st.crush||{};st.marks=st.marks||[];st.debris=st.debris||[];st.wrecks=st.wrecks||[];st.cost=st.cost||0;return st;}
+function dstore(){const k=builtMap||G.map;let st=DMG[k];if(!st)st=DMG[k]={ver:2};st.obs=st.obs||{};st.crush=st.crush||{};st.marks=st.marks||[];st.debris=st.debris||[];st.wrecks=st.wrecks||[];st.cost=st.cost||0;return st;}
 function repairSecs(d){return Math.min(3*3600,600+d*60);}
 function obsDmg(o){const r=dstore().obs[o.id];if(!r)return 0;const p=(tnow()-r.t)/repairSecs(r.d);return p>=1?0:r.d*(1-p);}
 // BLUE PHONE: a structure stays broken open until the crew is halfway through the repair, then it is solid again
@@ -908,7 +948,7 @@ function cabColor(T,p1,p2){return(f,l,fe)=>{
     case 'heavy':return(f<T.cab+6||(f<fe-1&&a<1.2))?p2:p1;}
   return p1;};}
 function boxColor(u){const hw=u.w/2,rr=u.kp-u.len;return(f,l)=>(Math.abs(l)>hw-.5||f>u.kp-.5||f<rr+.5)?PAL.trlEdge:(f<rr+1.1?PAL.trlDoor:PAL.trl);}
-const OB_SOFT={wall:1.6,rail:1.1,dock:.8,parked:1,shack:1.3,building:.6,tower:.25};
+const OB_SOFT={container:.6,railcar:.4,wall:1.6,rail:1.1,dock:.8,parked:1,shack:1.3,building:.6,tower:.25};
 // BLUE PHONE: dents and caved in faces on structures. thin things like fence panels bend and get shoved instead
 function rectW(x0,x1,y0,y1,c){if(x1>x0&&y1>y0)fillOBB((x0+x1)/2,(y0+y1)/2,0,(x1-x0)/2,(y1-y0)/2,c);}
 function drawObCrush(o,cr,sc){
@@ -925,8 +965,8 @@ function drawObCrush(o,cr,sc){
   for(const i in cr.R){const d=cr.R[i]*sc;if(d<.05)continue;const a=x0+ +i,b=Math.min(x1,a+1);
     if(thin){rectW(a,b,y0,y1,gc(a,y0-1));rectW(a,b,y0-d,y1-d,piece);}else{rectW(a,b,y1-d,y1,gc(a+.5,y1-d/2));rectW(a,b,y1-d-.6,y1-d,PAL.dent);}}
 }
-const BASE$={pallet:150,board:3000,debrisH:0,building:2400,tower:9000,parked:1800,shack:1500,dock:1200,wall:350,rail:900,pole:700,sign:250};
-const MAT={pallet:['wood','palletL'],debrisH:['tire','rubble'],board:['frame','amber'],wall:['fence','pole'],building:['roof','roofEdge','hvac','door'],dock:['dockB','door'],pole:['wood','pole'],sign:['sign','pole','wood'],
+const BASE$={container:4000,railcar:6000,pump:8000,pallet:150,board:3000,debrisH:0,building:2400,tower:9000,parked:1800,shack:1500,dock:1200,wall:350,rail:900,pole:700,sign:250};
+const MAT={container:['ctrR','ctrB','ctrO'],railcar:['railcar','frame'],pump:['signW','stopR','glass'],pallet:['wood','palletL'],debrisH:['tire','rubble'],board:['frame','amber'],wall:['fence','pole'],building:['roof','roofEdge','hvac','door'],dock:['dockB','door'],pole:['wood','pole'],sign:['sign','pole','wood'],
   shack:['shack','shackE','glass'],parked:['parked','parkedE','trlTire'],tower:['tower','tower2'],rail:['rail','concrete'],berm:['soft','soft2','dirt'],
   trailer:['trl','trlEdge'],legs:['leg','frame']};
 // BLUE PHONE: impact energy grows with the square of speed and with the weight of the rig
@@ -1349,6 +1389,15 @@ function yardLife(){
   PEDS.push(mkPed(326,114,{pois:YP,shirt:'#c8362b'}));
   PEDS.push(mkPed(110,196,{pois:YP,shirt:'#8a5a9e',speed:3}));
   PEDS.push(mkPed(326,110,{role:'loiter',hx:322,hy:112,r:8,vest:'o',hat:'#ee7a22'}));
+  const loop2=mkPath([[400,284],[690,284],[690,376],[400,376]],true,3),loop3=mkPath([[495,262],[495,85],[600,85],[600,262]],true,3);
+  STREAMS.push({P:loop2,t:25,min:15,max:30,maxN:2,mix:{pickup:2,sedan:1,van:1},v:[8,12]},{P:loop3,t:30,min:20,max:40,maxN:1,mix:{semi:1},v:[7,9]});
+  NPCS.push(mkCar('van',loop2,60,11/MPH,{stream:STREAMS[1]}),mkCar('pickup',loop2,300,10/MPH,{stream:STREAMS[1]}),mkCar('semi',loop3,80,8/MPH,{stream:STREAMS[2],paint:'#3f6fa8'}));
+  NPCS.push(mkFork(320,498,[[318,498],[316,500,'pick'],[318,494],[346,482],[346,484,'drop'],[340,476]]));
+  NPCS.push(mkFork(300,500,[[300,496],[326,500,'pick'],[300,494],[290,512],[286,515,'drop'],[296,500]]));
+  const YP2=[[460,300],[620,296],[495,180],[600,120],[300,480],[150,440],[560,560],[420,400]];
+  PEDS.push(mkPed(460,300,{pois:YP2,vest:'y',hat:'#f7f5ef'}),mkPed(150,440,{pois:YP2,shirt:'#2a62b0'}),mkPed(560,560,{pois:YP2,vest:'o',hat:'#f2c230',speed:3}));
+  PEDS.push(mkPed(462,336,{role:'loiter',hx:462,hy:336,r:14,shirt:'#c8362b'}),mkPed(604,298,{role:'loiter',hx:604,hy:296,r:8,vest:'y',hat:'#f7f5ef'}));
+  PEDS.push(mkPed(495,160,{role:'loiter',hx:495,hy:150,r:30,vest:'o',hat:'#f7f5ef'}),mkPed(250,500,{role:'loiter',hx:240,hy:500,r:30,vest:'y',hat:'#f2c230'}));
 }
 function routeLife(){
   FLAG={t:0,ph:0,px:null};
@@ -1667,6 +1716,120 @@ function drawMiniHw(){
   x.fillStyle='#c8362b';x.fillRect(X(s.x)-2*dpr,Y(s.y)-4*dpr,4*dpr,10*dpr);
 }
 
+
+// =====================================================================
+// BLUE PHONE: first person driver view. the ground is cast from the same top down map, one ray per pixel row,
+// BLUE PHONE: and everything standing on it is drawn as boxes with real heights, nearest last. two west coast mirrors
+// BLUE PHONE: render the same world from each side of the cab looking back, flipped the way a mirror shows it
+// =====================================================================
+const fpC=$('fp'),fpX=fpC.getContext('2d'),fpLo=document.createElement('canvas'),fpL=fpLo.getContext('2d');
+const fmC=[document.createElement('canvas'),document.createElement('canvas')],fmX=fmC.map(c=>c.getContext('2d'));
+let FP={W:0,H:0,img:null,buf:null,mW:0,mH:0,mImg:[null,null],mBuf:[null,null],shown:false};
+const OBH={building:32,parked:13.5,shack:10,pole:28,sign:7,tower:220,rail:3.2,wall:7,dock:4.5,pallet:5,debrisH:.9,board:9,berm:4,container:8.6,railcar:15,pump:6};
+const HV={sedan:4.8,suv:6,pickup:6.2,van:7.5,box:11,semi:11,moto:4,police:5,amb:9,fork:7,rig:11};
+const HAZE=col('#e7e3d9'),SKY0=col('#bcd6ea'),SKY1=col('#eef1ee'),HILL=col('#cdbfae');
+const CSSC=new Map();
+function cssMix(c,sh,fog){const si=Math.round(clamp(sh,.4,1.2)*20),fi=Math.round(clamp(fog,0,.9)*10),key=c*1000+si*11+fi;let v=CSSC.get(key);if(v)return v;
+  const k=si/20,f=fi/10,mix=(a,h)=>Math.round(Math.min(255,a*k)*(1-f)+h*f);
+  v='rgb('+mix(c&255,HAZE&255)+','+mix((c>>>8)&255,(HAZE>>>8)&255)+','+mix((c>>>16)&255,(HAZE>>>16)&255)+')';CSSC.set(key,v);return v;}
+function fpFog(d){return clamp((d-180)/950,0,.82);}
+function fpResize(){
+  const W=200,H=Math.max(200,Math.round(W*view.height/Math.max(1,view.width)));
+  if(FP.W!==W||FP.H!==H){FP.W=W;FP.H=H;fpLo.width=W;fpLo.height=H;FP.img=fpL.createImageData(W,H);FP.buf=new Uint32Array(FP.img.data.buffer);
+    FP.mW=Math.round(W*.27);FP.mH=Math.round(H*.2);for(let i=0;i<2;i++){fmC[i].width=FP.mW;fmC[i].height=FP.mH;FP.mImg[i]=fmX[i].createImageData(FP.mW,FP.mH);FP.mBuf[i]=new Uint32Array(FP.mImg[i].data.buffer);}}
+  if(fpC.width!==view.width||fpC.height!==view.height){fpC.width=view.width;fpC.height=view.height;}
+}
+// BLUE PHONE: what color the ground is at a world point. lines are widened with distance so they do not shimmer away
+function fpGround(x,y,foot){
+  if(!MAP.proc){const X=(x*PPF)|0,Y=(y*PPF)|0;if(X<0||Y<0||X>=WPX||Y>=HPX)return PAL.desert;return world[Y*WPX+X];}
+  let si=hwSurf(x,y);const w=Math.max(.25,foot*.5);
+  if(si===S_ASP||si===S_WET){const dash=(((Math.floor(y)%40)+40)%40)<12;
+    for(const lx of[12,24,-52,-64])if(Math.abs(x-lx)<w)return dash?PAL.lineW:(si===S_WET?PAL.wet:PAL.asphalt);
+    if(Math.abs(x-.5)<w||Math.abs(x+40.5)<w)return PAL.lineY;if(Math.abs(x-35.5)<w||Math.abs(x+75.5)<w)return PAL.lineW;
+    return si===S_WET?PAL.wet:PAL.asphalt;}
+  if(si===S_POT)return PAL.pot2;if(si===S_SHL)return PAL.shl;if(si===S_RUMB)return PAL.rumb;
+  const h=hsh(Math.floor(x/7),Math.floor(y/7));return h<4?PAL.scrub:PAL.desert;
+}
+function fpFloor(buf,W,H,cam){
+  const f=W/2/Math.tan(cam.fov/2),fx=Math.cos(cam.yaw),fy=Math.sin(cam.yaw),rx=-fy,ry=fx,hr=cam.hor;
+  const hz=HAZE,hr0=hz&255,hg=(hz>>>8)&255,hb=(hz>>>16)&255;
+  for(let y=0;y<H;y++){const row=y*W,dy=y+.5-hr;
+    if(dy<=.5){const t=clamp(y/Math.max(1,hr),0,1),c0=SKY0,c1=SKY1,mx=(a,b)=>Math.round(a+(b-a)*t);
+      const c=((255<<24)|(mx((c0>>>16)&255,(c1>>>16)&255)<<16)|(mx((c0>>>8)&255,(c1>>>8)&255)<<8)|mx(c0&255,c1&255))>>>0;buf.fill(c,row,row+W);continue;}
+    const d=cam.z*f/dy;if(d>cam.maxD){buf.fill(HAZE,row,row+W);continue;}
+    const fo=fpFog(d),fi=Math.round(fo*256),ki=256-fi,sx=rx*d/f,sy=ry*d/f;
+    let wx=cam.x+fx*d-rx*d*(W/2)/f+sx*.5,wy=cam.y+fy*d-ry*d*(W/2)/f+sy*.5;const foot=d/f;
+    for(let x=0;x<W;x++,wx+=sx,wy+=sy){const c=fpGround(wx,wy,foot);
+      buf[row+x]=((255<<24)|((((c>>>16)&255)*ki+hb*fi)>>8)<<16|((((c>>>8)&255)*ki+hg*fi)>>8)<<8|(((c&255)*ki+hr0*fi)>>8))>>>0;}}
+}
+function fpHills(ctx,W,cam){const f=W/2/Math.tan(cam.fov/2);ctx.fillStyle=cssMix(HILL,1,.15);ctx.beginPath();ctx.moveTo(0,cam.hor+.5);
+  for(let x=0;x<=W;x+=2){const a=cam.yaw+Math.atan((x-W/2)/f),h=(Math.sin(a*3)+.6*Math.sin(a*7+2)+.4*Math.sin(a*13+1)+2.1)*W*.011;ctx.lineTo(x,cam.hor-h);}
+  ctx.lineTo(W,cam.hor+.5);ctx.closePath();ctx.fill();}
+// BLUE PHONE: everything with height near the cab this frame
+function fpCollect(cx,cy,R){
+  const L=[],add=(b,z0,z1,c,top)=>{L.push({cx:b.cx,cy:b.cy,ang:b.ang||0,hl:b.hl,hw:b.hw,z0,z1,c,top:top||c});};
+  const nearB=b=>Math.abs(b.cx-cx)<R+b.hl+b.hw&&Math.abs(b.cy-cy)<R+b.hl+b.hw;
+  for(const o of OBST){if(!nearB(o))continue;if(o.hp<9999&&isBroken(o))continue;const h=o.h||OBH[o.type]||6;
+    const c=o.col!=null?o.col:o.type==='building'?col('#d6d0c2'):o.type==='parked'?PAL.trl:o.type==='shack'?PAL.shack:o.type==='pole'?PAL.pole:o.type==='sign'?PAL.sign:
+      o.type==='tower'?PAL.tower2:o.type==='rail'?PAL.rail:o.type==='wall'?PAL.fence:o.type==='dock'?PAL.dockB:o.type==='pallet'?PAL.wood:o.type==='berm'?PAL.soft2:
+      o.type==='pump'?PAL.signW:o.mat?o.mat[0]:PAL.concrete;
+    add(o,0,h,c,o.type==='building'?PAL.roof:null);}
+  for(const d of DOORS){const dir=d.dir||1,y=(d.y||51.2)-dir*1.35;if(Math.abs(d.x-cx)>R||Math.abs(y-cy)>R)continue;add({cx:d.x,cy:y,hl:5,hw:.2},0,12,G.target===d&&Math.floor(now()*2)%2?PAL.yellow||PAL.lineY:PAL.door);}
+  for(const c of cones)if(Math.abs(c.x-cx)<R&&Math.abs(c.y-cy)<R)add({cx:c.x,cy:c.y,ang:c.ang,hl:c.knock?1:.6,hw:c.knock?.5:.6},0,c.knock?.8:2.4,PAL.cone);
+  for(const n of NPCS){if(Math.abs(n.x-cx)>R||Math.abs(n.y-cy)>R)continue;const bs=nBoxes(n),h=HV[n.type]||6;
+    bs.forEach(b=>{const trl=b.part===1;add(b,trl?1.2:0,trl?13.5:h,trl?(n.tc||PAL.trl):(n.c1||PAL.trl),trl?PAL.trl:(n.c2||n.c1));});}
+  for(const p of PEDS)if(Math.abs(p.x-cx)<R&&Math.abs(p.y-cy)<R){const body=p.vest?(p.vest==='o'?PAL.vestO:PAL.vestY):col(p.shirt);
+    add({cx:p.x,cy:p.y,ang:p.th,hl:.45,hw:.9},0,5.2,body);add({cx:p.x,cy:p.y,ang:p.th,hl:.4,hw:.4},5.2,6.1,p.hat?col(p.hat):col(p.hair));}
+  for(const w of dstore().wrecks){if(w.run===G.runId||Math.abs(w.x-cx)>R||Math.abs(w.y-cy)>R)continue;add(box(w.x,w.y,w.th,w.tail,w.bumper,w.half),0,9,PAL.wreck);}
+  const s=G.s;for(const c of chain(s)){const bs=unitBoxes(c),u=c.u;bs.forEach((b,i)=>{let z0=1.2,z1=13.5,cc=PAL.trl;
+    if(b.high){z0=4.5;z1=13;cc=PAL.blade;}else if(u.type==='dolly'){z0=0;z1=3;cc=PAL.deck;}else if(u.type==='lowboy'){if(i===0){z0=0;z1=3.5;cc=PAL.deck;}else{z0=3.5;z1=13;cc=PAL.exc;}}
+    else if(u.type==='blade'){z0=0;z1=4;cc=PAL.deck;}add(b,z0,z1,cc);});}
+  return L;
+}
+function clipNear(P,n){const o=[];for(let i=0;i<P.length;i++){const A=P[i],B=P[(i+1)%P.length],ia=A[2]>=n,ib=B[2]>=n;if(ia)o.push(A);
+  if(ia!==ib){const t=(n-A[2])/(B[2]-A[2]);o.push([A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t,n]);}}return o;}
+function fpBoxes(ctx,W,H,cam,boxes){
+  const f=W/2/Math.tan(cam.fov/2),fx=Math.cos(cam.yaw),fy=Math.sin(cam.yaw),rx=-fy,ry=fx,tf=Math.tan(cam.fov/2)*1.15,faces=[];
+  const tr=(X,Y,Z)=>{const dx=X-cam.x,dy=Y-cam.y;return[dx*rx+dy*ry,Z-cam.z,dx*fx+dy*fy];};
+  for(const b of boxes){const dx=b.cx-cam.x,dy=b.cy-cam.y,fw=dx*fx+dy*fy,r=b.hl+b.hw;if(fw<-r||fw>cam.maxD+r)continue;
+    const rt=dx*rx+dy*ry;if(Math.abs(rt)>Math.max(0,fw)*tf+r+3)continue;
+    const c=Math.cos(b.ang),s=Math.sin(b.ang),P=[[b.hl,b.hw],[b.hl,-b.hw],[-b.hl,-b.hw],[-b.hl,b.hw]].map(([u,v])=>[b.cx+c*u-s*v,b.cy+s*u+c*v]);
+    for(let i=0;i<4;i++){const A=P[i],B=P[(i+1)%4],mx=(A[0]+B[0])/2,my=(A[1]+B[1])/2,nx=mx-b.cx,ny=my-b.cy;
+      if(nx*(cam.x-mx)+ny*(cam.y-my)<=0)continue;
+      const len=Math.hypot(B[0]-A[0],B[1]-A[1]),k=Math.max(1,Math.ceil(len/16)),nl=Math.hypot(nx,ny)||1,sh=.68+.32*Math.abs((nx*.55-ny*.83)/nl);
+      for(let j=0;j<k;j++){const a=[A[0]+(B[0]-A[0])*j/k,A[1]+(B[1]-A[1])*j/k],e=[A[0]+(B[0]-A[0])*(j+1)/k,A[1]+(B[1]-A[1])*(j+1)/k];
+        const d=Math.hypot((a[0]+e[0])/2-cam.x,(a[1]+e[1])/2-cam.y);
+        faces.push({p:[tr(a[0],a[1],b.z0),tr(e[0],e[1],b.z0),tr(e[0],e[1],b.z1),tr(a[0],a[1],b.z1)],c:b.c,sh,d});}}
+    if(cam.z>b.z1)faces.push({p:P.map(q=>tr(q[0],q[1],b.z1)),c:b.top,sh:1.08,d:Math.hypot(dx,dy)+.01});}
+  faces.sort((a,b)=>b.d-a.d);
+  for(const fc of faces){const q=clipNear(fc.p,.6);if(q.length<3)continue;ctx.fillStyle=cssMix(fc.c,fc.sh,fpFog(fc.d));ctx.beginPath();
+    for(let i=0;i<q.length;i++){const X=W/2+f*q[i][0]/q[i][2],Y=cam.hor-f*q[i][1]/q[i][2];if(i)ctx.lineTo(X,Y);else ctx.moveTo(X,Y);}ctx.closePath();ctx.fill();}
+}
+function fpScene(ctx,img,buf,W,H,cam,boxes){fpFloor(buf,W,H,cam);ctx.putImageData(img,0,0);fpHills(ctx,W,cam);fpBoxes(ctx,W,H,cam,boxes);}
+function render3D(){
+  fpResize();const s=G.s,T=TRK,ca=Math.cos(s.th),sa=Math.sin(s.th),W=FP.W,H=FP.H,co=T.style==='cabover';
+  const eyeF=co?T.bumper-3:T.cab+3.6,eyeL=-1.8,sh=G.shake>0?(Math.random()-.5)*.03:0;
+  const cam={x:s.x+ca*eyeF-sa*eyeL,y:s.y+sa*eyeF+ca*eyeL,z:(co?9.2:8.5)+(G.shake>0?(Math.random()-.5)*.3:0),yaw:s.th+(G.look||0)+sh,fov:78*DEG,hor:H*.4,maxD:900};
+  const boxes=fpCollect(s.x,s.y,900);
+  fpScene(fpL,FP.img,FP.buf,W,H,cam,boxes);
+  // BLUE PHONE: the cab around you. hood for long nose tractors, dash, windshield pillars
+  const p1=T.paint[0],L=fpL;
+  if(!co){L.fillStyle=G.total?'#5c574f':p1;L.beginPath();L.moveTo(W*.06,H*.73);L.lineTo(W*.3,H*.645);L.lineTo(W*.7,H*.645);L.lineTo(W*.94,H*.73);L.closePath();L.fill();
+    L.fillStyle='rgba(255,255,255,.25)';L.fillRect(W*.49,H*.648,W*.02,H*.08);L.fillStyle='#9a978f';L.fillRect(W*.3,H*.645,W*.4,H*.006);}
+  L.fillStyle='#d6d1c6';L.fillRect(0,H*.72,W,H*.28);L.fillStyle='#9d9a8f';L.fillRect(0,H*.72,W,H*.012);
+  L.fillStyle='#5c5a54';L.beginPath();L.moveTo(0,0);L.lineTo(W*.05,0);L.lineTo(W*.11,H*.72);L.lineTo(0,H*.72);L.closePath();L.fill();
+  L.beginPath();L.moveTo(W,0);L.lineTo(W*.95,0);L.lineTo(W*.89,H*.72);L.lineTo(W,H*.72);L.closePath();L.fill();
+  // BLUE PHONE: mirrors. each sits off the side of the cab, aimed back and slightly out
+  const mW=FP.mW,mH=FP.mH,my=H*.5;
+  for(let i=0;i<2;i++){const sd=i===0?-1:1,mf=T.cab+(co?T.bumper-T.cab-2:4),ml=sd*(T.half+1.1);
+    const mc={x:s.x+ca*mf-sa*ml,y:s.y+sa*mf+ca*ml,z:8,yaw:s.th+Math.PI-sd*.11,fov:30*DEG,hor:mH*.42,maxD:500};
+    fpScene(fmX[i],FP.mImg[i],FP.mBuf[i],mW,mH,mc,boxes);
+    const x0=i===0?W*.015:W-W*.015-mW;L.fillStyle='#3d3a35';L.fillRect(x0-2,my-2,mW+4,mH+4);
+    L.save();L.translate(x0+mW,my);L.scale(-1,1);L.drawImage(fmC[i],0,0);L.restore();
+    L.fillStyle='rgba(255,255,255,.18)';L.fillRect(x0,my,mW,1);}
+  fpX.imageSmoothingEnabled=false;fpX.drawImage(fpLo,0,0,fpC.width,fpC.height);
+}
+
 function updateSink(name,si,dt,lf){
   const v=G.sink[name]||0;
   if(SURF[si].soft){const slow=Math.abs(G.s.v)<1.5?1.3:.6;G.sink[name]=Math.min(1,v+dt*(.1+.3*lf)*slow);}
@@ -1843,7 +2006,7 @@ function goals(dt){
     }
     if(G.target&&s.coupled){
       const ch=chain(s),last=ch[ch.length-1],[rx,ry]=rearOf(last);
-      const lat=rx-G.target.x,gap=ry-51.2,angErr=Math.abs(normA(last.ph-Math.PI/2));
+      const T0=G.target,lat=rx-T0.x,gap=(ry-T0.y)*T0.dir,angErr=Math.abs(normA(last.ph-(T0.dir>0?Math.PI/2:-Math.PI/2)));
       if(Math.abs(lat)<=1.5&&gap>=-.2&&gap<=1.5&&angErr<=4*DEG&&Math.abs(s.v)<.15){G.dockT+=dt;if(G.dockT>.8)docked(lat,angErr);}else G.dockT=0;
     }
   }else if(MAP.goal==='pad'){
@@ -2015,7 +2178,7 @@ function drawGuide(){
 function drawTarget(){
   if(Math.floor(now()*3)%2===0)return;
   let x0,x1,y0,y1;
-  if(G.target){x0=G.target.x-5.5;x1=G.target.x+5.5;y0=51.2;y1=51.2+(U[U.length-1].len||53)+3;}
+  if(G.target){const L=(U[U.length-1].len||53)+3;x0=G.target.x-5.5;x1=G.target.x+5.5;if(G.target.dir>0){y0=G.target.y;y1=G.target.y+L;}else{y0=G.target.y-L;y1=G.target.y;}}
   else if(PAD&&G.s.coupled&&G.lineE&&G.lineS&&!G.done){x0=PAD.x0+1;x1=PAD.x1-1;y0=PAD.y0+1;y1=PAD.y1-1;}
   else return;
   const[a,b]=toB(x0,y0),[c2,d]=toB(x1,y1);
@@ -2025,6 +2188,8 @@ function drawTarget(){
 function drawCones(){for(const c of cones){if(c.knock)fillOBB(c.x,c.y,c.ang,1,.5,PAL.cone);else{fillOBB(c.x,c.y,0,.8,.8,PAL.cone);fillOBB(c.x,c.y,0,.3,.3,PAL.cone2);}}}
 
 function render(){
+  const drv=G.cam==='driver';if(drv!==FP.shown){FP.shown=drv;fpC.style.display=drv?'block':'none';view.style.display=drv?'none':'block';}
+  if(drv){render3D();return;}
   // RED PHONE: camera holds the whole rig in the open space between the top bar and the controls
   const s=G.s,ch=chain(s);let tx,ty;
   if(s.coupled){const[rx,ry]=rearOf(ch[ch.length-1]);tx=(s.x+Math.cos(s.th)*TRK.bumper+rx)/2;ty=(s.y+Math.sin(s.th)*TRK.bumper+ry)/2;}
@@ -2085,7 +2250,7 @@ function drawMini(){
   x.drawImage(mmBuf,ox,oy,mmBuf.width*sc,mmBuf.height*sc);
   const m=(wx,wy)=>[ox+wx/k*sc,oy+wy/k*sc];
   x.lineWidth=Math.max(1.5,dpr*1.2);
-  if(G.target||(PAD&&!G.done)){x.strokeStyle='#2a62b0';let r;if(G.target)r=[G.target.x-6,51,12,56];else r=[PAD.x0,PAD.y0,PAD.x1-PAD.x0,PAD.y1-PAD.y0];const[a,b]=m(r[0],r[1]);x.strokeRect(a,b,r[2]/k*sc,r[3]/k*sc);}
+  if(G.target||(PAD&&!G.done)){x.strokeStyle='#2a62b0';let r;if(G.target)r=[G.target.x-6,G.target.dir>0?G.target.y:G.target.y-56,12,56];else r=[PAD.x0,PAD.y0,PAD.x1-PAD.x0,PAD.y1-PAD.y0];const[a,b]=m(r[0],r[1]);x.strokeRect(a,b,r[2]/k*sc,r[3]/k*sc);}
   const s=G.s,ch=chain(s);x.strokeStyle='#c8362b';x.lineWidth=Math.max(2,dpr*1.8);x.beginPath();
   let[a,b]=m(s.x+Math.cos(s.th)*TRK.bumper,s.y+Math.sin(s.th)*TRK.bumper);x.moveTo(a,b);
   for(const c of ch){[a,b]=m(c.hx,c.hy);x.lineTo(a,b);[a,b]=m(...rearOf(c));x.lineTo(a,b);}
@@ -2204,11 +2369,15 @@ function setupInput(){
   $('bGuide').addEventListener('click',()=>{G.guide=!G.guide;$('bGuide').classList.toggle('on',G.guide);});
   $('bWatch').addEventListener('click',()=>{G.watch=!G.watch;$('bWatch').classList.toggle('on',G.watch);if(G.watch&&!NPCS.some(n=>n.kind==='rig'))G.watch=false;});
   $('bZoom').addEventListener('click',()=>{G.zoom=(G.zoom+1)%ZOOMS.length;resize();});
-  const CAMS=['auto','cab','rear','whole'],CAML={auto:'Auto',cab:'Cab',rear:'Rear',whole:'Whole'};
+  const CAMS=['auto','cab','rear','whole','driver'],CAML={auto:'Auto',cab:'Cab',rear:'Rear',whole:'Whole',driver:'Driver'};
   try{const c=localStorage.getItem('tbs-cam');if(CAMS.includes(c))G.cam=c;}catch(e){}
   if(!G.cam)G.cam='auto';$('bCam').textContent=CAML[G.cam];
   $('bCam').addEventListener('click',()=>{G.cam=CAMS[(CAMS.indexOf(G.cam)+1)%CAMS.length];G.camOff={x:0,y:0};$('bCam').textContent=CAML[G.cam];
-    try{localStorage.setItem('tbs-cam',G.cam);}catch(e){}msg({auto:'Camera follows the cab or the rear by gear',cab:'Camera looks ahead of the cab',rear:'Camera looks behind the trailer',whole:'Camera frames the whole rig'}[G.cam],2);});
+    try{localStorage.setItem('tbs-cam',G.cam);}catch(e){}msg({auto:'Camera follows the cab or the rear by gear',cab:'Camera looks ahead of the cab',rear:'Camera looks behind the trailer',whole:'Camera frames the whole rig',driver:'Driver seat. Drag to look around, double tap to look ahead'}[G.cam],2);G.look=0;});
+  // BLUE PHONE: in the driver seat, drag to turn your head
+  let fpPid=null,fpLx=0,fpTap=0;fpC.addEventListener('pointerdown',e=>{e.preventDefault();fpPid=e.pointerId;fpLx=e.clientX;try{fpC.setPointerCapture(e.pointerId);}catch(_){ }const n=performance.now();if(n-fpTap<300)G.look=0;fpTap=n;});
+  fpC.addEventListener('pointermove',e=>{if(e.pointerId!==fpPid)return;G.look=clamp((G.look||0)-(e.clientX-fpLx)*.006,-1.9,1.9);fpLx=e.clientX;});
+  const fpEnd=e=>{if(e.pointerId===fpPid)fpPid=null;};fpC.addEventListener('pointerup',fpEnd);fpC.addEventListener('pointercancel',fpEnd);
   // BLUE PHONE: touch the map itself. one finger pans, two fingers pinch zoom, double tap recenters
   const vp=new Map();let pinch0=0,zoom0=0,lastTapV=0;
   view.addEventListener('pointerdown',e=>{e.preventDefault();try{view.setPointerCapture(e.pointerId);}catch(_){ }vp.set(e.pointerId,{x:e.clientX,y:e.clientY});
@@ -2229,7 +2398,7 @@ function setupInput(){
   $('bDispatch').addEventListener('click',()=>{$('rig').classList.remove('on');openDispatch();});
   $('bRestart').addEventListener('click',()=>location.reload());
   $('bCenter').addEventListener('click',()=>{G.centering=true;$('rig').classList.remove('on');});
-  $('bRebuild').addEventListener('click',()=>{delete DMG[builtMap];saveDmg();chunks=[];$('rig').classList.remove('on');msg('Crews rebuilt everything. Good as new',3);});
+  $('bRebuild').addEventListener('click',()=>{delete DMG[builtMap];DMG[builtMap]={ver:2};saveDmg();chunks=[];$('rig').classList.remove('on');msg('Crews rebuilt everything. Good as new',3);});
   addEventListener('pagehide',saveDmg);
   $('cAgain').addEventListener('click',()=>{$('card').classList.remove('on');setupRun();});
   $('cDisp').addEventListener('click',()=>{$('card').classList.remove('on');openDispatch();});
