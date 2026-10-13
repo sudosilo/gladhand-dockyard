@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>gladhand dockyard v6</title>
+<title>gladhand dockyard v7</title>
 <!--
 RED PHONE: trailer backing sim v5
 RED PHONE: v4 written on the Red phone in chat with Claude Opus 5.5, Oct 11 2026 (single van, dock yard, inspection, air lines, magnetic coupling)
@@ -17,6 +17,8 @@ BLUE PHONE: v6 adds: crash damage that scales with speed and weight, a cab that 
 BLUE PHONE: fences, rails, poles, signs, docks and shacks that break and can be driven through, craters on buildings and towers,
 BLUE PHONE: damage and debris saved on the device per map, repair crews that rebuild it in real time, wrecks left until towed,
 BLUE PHONE: property damage total per map on the dispatch screen, and a rig button that rebuilds everything
+BLUE PHONE: v7 adds: every hit at any speed deforms both bodies. cab and trailer boxes crush inward where they hit and the trailer
+BLUE PHONE: roof folds when a side caves in. parked trailers buckle, fences bend and crumble, buildings, shacks and towers cave in
 -->
 <style>
 /* RED PHONE: palette from the truck yard. light concrete panels, safety yellow, DOT red, glad hand blue. no dark backgrounds */
@@ -458,7 +460,7 @@ let MAP=null,W=360,H=300,surf=null,world=null,WPX=0,HPX=0,OBST=[],DOORS=[],CONE_
 function zone(x0,y0,x1,y1,t){for(let y=Math.max(0,Math.floor(y0));y<Math.min(H,Math.ceil(y1));y++)for(let x=Math.max(0,Math.floor(x0));x<Math.min(W,Math.ceil(x1));x++)surf[y*W+x]=t;}
 function surfAt(x,y){const ix=Math.floor(x),iy=Math.floor(y);if(ix<0||iy<0||ix>=W||iy>=H)return S_DES;return surf[iy*W+ix];}
 // BLUE PHONE: how much hit each kind of structure takes before it breaks open. anything not listed never breaks
-const BRK={wall:30,rail:55,pole:22,sign:8,shack:70,dock:35};
+const BRK={wall:18,rail:45,pole:18,sign:8,shack:60,dock:30};
 function addOb(x,y,w,h,type,label,tall){OBST.push({id:'o'+(oid++),type,label,tall:!!tall,cx:x+w/2,cy:y+h/2,ang:0,hl:w/2,hw:h/2,hp:BRK[type]||9999});}
 function ob(x,y,w,h,type,label,tall){
   // BLUE PHONE: long fences and rails split into short panels so a crash breaks one panel, not the whole line
@@ -593,7 +595,7 @@ const MAPS={
 };
 function loadMap(key){
   MAP=MAPS[key];W=MAP.W;H=MAP.H;surf=new Uint8Array(W*H);WPX=W*PPF;HPX=H*PPF;world=new Uint32Array(WPX*HPX);
-  OBST=[];DOORS=[];PAD=null;oid=0;MAP.build();addBerms();buildMini();resetCones();pruneDmg();
+  OBST=[];DOORS=[];PAD=null;oid=0;MAP.build();addBerms();OBI={};for(const o of OBST)OBI[o.id]=o;buildMini();resetCones();pruneDmg();
 }
 function resetCones(){cones=CONE_HOME.map(([x,y],i)=>({id:'c'+i,x,y,knock:false,vx:0,vy:0,ang:0}));}
 
@@ -640,7 +642,7 @@ function startPose(){
   G.lineE=false;G.lineS=false;G.gear='N';G.wheelDeg=0;G.throttle=0;G.rsIn=0;G.centering=false;
   G.sink={};G.inSurf={};G.om=[];G.slipU=[];G.slide=0;
   G.target=null;G.pullups=0;G.dockT=0;G.done=false;G.camInit=false;G.tires=100;G.stuckT=0;G.armed=true;
-  G.cab=100;G.trl=100;G.total=false;G.dents=[];G.udents=[];G.crumple=0;G.runId=Date.now();
+  G.cab=100;G.trl=100;G.total=false;G.dents=[];G.udents=[];G.crumple=0;G.runId=Date.now();G.crushT=newCrush();G.crushU=[];
 }
 function weights(){
   let trailerW=0;for(const u of U)trailerW+=u.empty+u.load;
@@ -718,9 +720,9 @@ function findHit(s){
     const ahead=(s.x-c0.hx)*c0.c+(s.y-c0.hy)*c0.s,lined=Math.abs(normA(s.th-c0.ph))<.52;
     for(const c of ch)for(const b of unitBoxes(c)){
       if(b.high)continue;
-      if(obbHit(T.cab,b))return{o:Tr,b:T.cab,ob:b};
+      if(obbHit(T.cab,b))return{o:Tr,b:T.cab,ob:b,tu:c.i};
       if(c.i===0&&lined&&ahead>-2)continue;   // RED PHONE: frame may slide under the first nose, lined up, from the front
-      if(obbHit(T.tail,b))return{o:Tr,b:T.tail,ob:b};
+      if(obbHit(T.tail,b))return{o:Tr,b:T.tail,ob:b,tu:c.i};
     }
     if(c0.u.legs)for(const l of legBoxes(c0))if(obbHit(T.full,l))return{o:{id:'legs',type:'legs',label:'landing gear'},b:T.full,ob:l};
   }
@@ -811,13 +813,14 @@ let DMG={};try{DMG=JSON.parse(localStorage.getItem(DMGKEY)||'{}')||{};}catch(e){
 let chunks=[];
 const tnow=()=>Date.now()/1000;
 function saveDmg(){try{localStorage.setItem(DMGKEY,JSON.stringify(DMG));}catch(e){}}
-function dstore(){const k=builtMap||G.map;let st=DMG[k];if(!st)st=DMG[k]={};st.obs=st.obs||{};st.marks=st.marks||[];st.debris=st.debris||[];st.wrecks=st.wrecks||[];st.cost=st.cost||0;return st;}
+function dstore(){const k=builtMap||G.map;let st=DMG[k];if(!st)st=DMG[k]={};st.obs=st.obs||{};st.crush=st.crush||{};st.marks=st.marks||[];st.debris=st.debris||[];st.wrecks=st.wrecks||[];st.cost=st.cost||0;return st;}
 function repairSecs(d){return Math.min(3*3600,600+d*60);}
 function obsDmg(o){const r=dstore().obs[o.id];if(!r)return 0;const p=(tnow()-r.t)/repairSecs(r.d);return p>=1?0:r.d*(1-p);}
 // BLUE PHONE: a structure stays broken open until the crew is halfway through the repair, then it is solid again
 function isBroken(o){const r=dstore().obs[o.id];if(!r||r.d<o.hp)return false;return (tnow()-r.t)/repairSecs(r.d)<.5;}
 function pruneDmg(){const T=tnow();for(const k in DMG){const st=DMG[k];if(!st)continue;
   for(const id in (st.obs||{})){const r=st.obs[id];if(T-r.t>=repairSecs(r.d))delete st.obs[id];}
+  for(const id in (st.crush||{})){const r=st.crush[id];if(T-r.t>=repairSecs(r.d))delete st.crush[id];}
   st.marks=(st.marks||[]).filter(m=>T-m.t<repairSecs(m.s));st.debris=(st.debris||[]).filter(d=>T-d.t<DEBRIS_SECS);st.wrecks=(st.wrecks||[]).filter(w=>T-w.t<WRECK_SECS);}}
 function money(n){n=Math.round(n||0);return n>=1e6?'$'+(n/1e6).toFixed(1)+'M':n>=1e4?'$'+Math.round(n/1e3)+'k':'$'+n.toLocaleString();}
 function addBerms(){const B=30;
@@ -839,6 +842,63 @@ function spawnChunks(x,y,dx,dy,n,cols,spd){const base=Math.atan2(dy,dx);
       c:cols[Math.floor(Math.random()*cols.length)],s:.35+Math.random()*.75,life:0});}}
 function settle(k){const st=dstore();st.debris.push({x:Math.round(k.x*10)/10,y:Math.round(k.y*10)/10,a:Math.round(k.a*100)/100,s:Math.round(k.s*100)/100,c:k.c,t:Math.round(tnow())});
   if(st.debris.length>600)st.debris.splice(0,st.debris.length-600);G.dirty=true;}
+
+// =====================================================================
+// BLUE PHONE: crush model. every body is a box in its own frame, f along it and l across it.
+// BLUE PHONE: each face keeps a depth per foot of face length, so a hit pushes that face in where it landed
+// =====================================================================
+let OBI={};
+function newCrush(){return{F:{},B:{},L:{},R:{}};}
+function hasCrush(c){if(!c)return false;for(const k of['F','B','L','R'])for(const i in c[k])if(c[k][i]>.05)return true;return false;}
+function applyCrush(cr,f0,f1,hw,f,l,depth,maxAlongF,maxAlongL){
+  const dF=f1-f,dB=f-f0,dL=l+hw,dR=hw-l,m=Math.min(dF,dB,dL,dR);
+  const face=m===dF?'F':m===dB?'B':m===dL?'L':'R',across=face==='F'||face==='B';
+  const u=across?l+hw:f-f0,len=Math.ceil(across?2*hw:f1-f0),mx=across?maxAlongF:maxAlongL,spread=1.2+depth*.9;
+  for(let i=Math.floor(u-spread);i<=Math.ceil(u+spread);i++){if(i<0||i>=len)continue;const w=1-Math.abs(i+.5-u)/spread;if(w<=0)continue;
+    cr[face][i]=Math.round(Math.min(mx,(cr[face][i]||0)+depth*w)*100)/100;}
+  return face;
+}
+// BLUE PHONE: draws a crushed body cell by cell. pushed in faces leave ground showing, creases show dark, a caved side folds the roof
+function drawCrushBody(ox,oy,ang,f0,f1,hw,cr,colorFn,step){
+  const nl=Math.ceil(2*hw);
+  for(let f=f0;f<f1-1e-6;f+=step){
+    const fe=Math.min(f1,f+step),k=Math.floor(f-f0+1e-6),Lk=cr.L[k]||0,Rk=cr.R[k]||0,tot=Lk+Rk;
+    const fold=tot>1.5&&tot>=(cr.L[k-1]||0)+(cr.R[k-1]||0)&&tot>=(cr.L[k+1]||0)+(cr.R[k+1]||0);
+    for(let j=0;j<nl;j++){
+      const Fj=cr.F[j]||0,Bj=cr.B[j]||0,fa=Math.max(f,f0+Bj),fb=Math.min(fe,f1-Fj);if(fb<=fa)continue;
+      const la=Math.max(-hw+j,-hw+Lk),lb=Math.min(-hw+j+1,hw,hw-Rk);if(lb<=la)continue;
+      let c=colorFn((fa+fb)/2,(la+lb)/2,f1-Fj,f0+Bj);
+      if(fold||(Fj>.1&&fb>f1-Fj-.6)||(Bj>.1&&fa<f0+Bj+.6)||(Lk>.1&&la<-hw+Lk+.6)||(Rk>.1&&lb>hw-Rk-.6))c=PAL.dent;
+      part(ox,oy,ang,fa,fb,la,lb,c);
+    }
+  }
+}
+function cabColor(T,p1,p2){return(f,l,fe)=>{
+  if(f>=fe-.6)return PAL.bumper;const a=Math.abs(l);
+  switch(T.style){
+    case 'conv':return f<T.cab+5.5?p2:p1;
+    case 'sleeper':return f<T.cab+6.5?p2:p1;
+    case 'cabover':if(f>fe-2.6&&f<fe-1.2&&a<T.half-.4)return PAL.glass;return(f<fe-3&&a<T.half-1)?p2:p1;
+    case 'heavy':return(f<T.cab+6||(f<fe-1&&a<1.2))?p2:p1;}
+  return p1;};}
+function boxColor(u){const hw=u.w/2,rr=u.kp-u.len;return(f,l)=>(Math.abs(l)>hw-.5||f>u.kp-.5||f<rr+.5)?PAL.trlEdge:(f<rr+1.1?PAL.trlDoor:PAL.trl);}
+const OB_SOFT={wall:1.6,rail:1.1,dock:.8,parked:1,shack:1.3,building:.6,tower:.25};
+// BLUE PHONE: dents and caved in faces on structures. thin things like fence panels bend and get shoved instead
+function rectW(x0,x1,y0,y1,c){if(x1>x0&&y1>y0)fillOBB((x0+x1)/2,(y0+y1)/2,0,(x1-x0)/2,(y1-y0)/2,c);}
+function drawObCrush(o,cr,sc){
+  const x0=o.cx-o.hl,x1=o.cx+o.hl,y0=o.cy-o.hw,y1=o.cy+o.hw,thin=Math.min(o.hl,o.hw)<1.6;
+  const inside=(o.type==='building'||o.type==='shack'||o.type==='tower')?PAL.rubble2:null;
+  const piece=o.type==='rail'?PAL.rail:o.type==='dock'?PAL.dockB:PAL.fence;
+  const gc=(x,y)=>inside||groundAt(x,y);
+  for(const i in cr.F){const d=cr.F[i]*sc;if(d<.05)continue;const a=y0+ +i,b=Math.min(y1,a+1);
+    if(thin){rectW(x0,x1,a,b,gc(x0-1,a));rectW(x0-d,x1-d,a,b,piece);}else{rectW(x1-d,x1,a,b,gc(x1-d/2,a+.5));rectW(x1-d-.6,x1-d,a,b,PAL.dent);}}
+  for(const i in cr.B){const d=cr.B[i]*sc;if(d<.05)continue;const a=y0+ +i,b=Math.min(y1,a+1);
+    if(thin){rectW(x0,x1,a,b,gc(x1+1,a));rectW(x0+d,x1+d,a,b,piece);}else{rectW(x0,x0+d,a,b,gc(x0+d/2,a+.5));rectW(x0+d,x0+d+.6,a,b,PAL.dent);}}
+  for(const i in cr.L){const d=cr.L[i]*sc;if(d<.05)continue;const a=x0+ +i,b=Math.min(x1,a+1);
+    if(thin){rectW(a,b,y0,y1,gc(a,y1+1));rectW(a,b,y0+d,y1+d,piece);}else{rectW(a,b,y0,y0+d,gc(a+.5,y0+d/2));rectW(a,b,y0+d,y0+d+.6,PAL.dent);}}
+  for(const i in cr.R){const d=cr.R[i]*sc;if(d<.05)continue;const a=x0+ +i,b=Math.min(x1,a+1);
+    if(thin){rectW(a,b,y0,y1,gc(a,y0-1));rectW(a,b,y0-d,y1-d,piece);}else{rectW(a,b,y1-d,y1,gc(a+.5,y1-d/2));rectW(a,b,y1-d-.6,y1-d,PAL.dent);}}
+}
 const BASE$={building:2400,tower:9000,parked:1800,shack:1500,dock:1200,wall:350,rail:900,pole:700,sign:250};
 const MAT={wall:['fence','pole'],building:['roof','roofEdge','hvac','door'],dock:['dockB','door'],pole:['wood','pole'],sign:['sign','pole','wood'],
   shack:['shack','shackE','glass'],parked:['parked','parkedE','trlTire'],tower:['tower','tower2'],rail:['rail','concrete'],berm:['soft','soft2','dirt'],
@@ -846,8 +906,9 @@ const MAT={wall:['fence','pole'],building:['roof','roofEdge','hvac','door'],dock
 // BLUE PHONE: impact energy grows with the square of speed and with the weight of the rig
 function crash(hit,mph,extra){
   const o=hit.o,s=G.s,b=hit.b;
-  if(o.type==='dock'&&hit.isTrl&&mph<3){if(mph>1.6)penalize(o.id,50,'Slammed the dock at '+mph.toFixed(1)+' mph',1.5);return false;}
-  if(mph<3){if(mph>.4){penalize(o.id,o.type==='trailer'?30:o.tall?60:40,'Hit the '+o.label,1.2);if(hit.isTrl)G.trl=Math.max(0,G.trl-1);else G.cab=Math.max(0,G.cab-1);}return false;}
+  if(o.type==='dock'&&hit.isTrl&&mph<1.6)return false;   // BLUE PHONE: a gentle kiss on the dock bumper is just docking
+  if(mph<=.4)return false;
+  if(mph<3){const ck='cr'+o.id;if(G.cool[ck]&&now()<G.cool[ck])return false;G.cool[ck]=now()+.8;}
   const geo=o.cx!=null?o:hit.ob,[cx,cy]=closestOBB(geo,b.cx,b.cy);
   const w=weights(),mf=Math.min(2.5,w.gvw/40000),E=mph*mph/4*mf;
   const prop=o.type!=='trailer'&&o.type!=='legs'&&o.type!=='berm',st=dstore(),T=tnow();let broke=false;
@@ -855,14 +916,29 @@ function crash(hit,mph,extra){
   if(prop){addMark(cx,cy,E,o);st.cost+=Math.round((BASE$[o.type]||500)*(.4+E/20));}
   const solidK=broke?.7:(o.type==='building'||o.type==='tower'||o.type==='berm'?1.3:o.type==='sign'?.3:1);
   const td=100*Math.pow(mph/20,2)*(.6+.4*Math.min(2,mf))*solidK*(extra?.5:1);
-  if(!hit.isTrl){G.cab=Math.max(0,G.cab-td);addDent(G.dents,s.x,s.y,s.th,cx,cy,E);
-    const fwd=(cx-s.x)*Math.cos(s.th)+(cy-s.y)*Math.sin(s.th);if(fwd>TRK.cab)G.crumple=Math.min(4.5,G.crumple+td*.05);}
-  else{G.trl=Math.max(0,G.trl-td*.8);const c=chain(s)[hit.ui];if(c){const arr=G.udents[hit.ui]||(G.udents[hit.ui]=[]);addDent(arr,c.hx,c.hy,c.ph,cx,cy,E);}}
+  // BLUE PHONE: both bodies give. the truck crushes more against hard things, the thing it hit crushes by how soft it is
+  const hard=o.type==='building'||o.type==='tower'||o.type==='berm',dV=(.3+Math.sqrt(E)*.6)*(hard?1.2:broke?.6:1);
+  const unitCrush=(ui,dd)=>{const c=chain(s)[ui];if(!c)return;const u=c.u,lf=(cx-c.hx)*c.c+(cy-c.hy)*c.s,ll=-(cx-c.hx)*c.s+(cy-c.hy)*c.c;
+    if(u.type==='van'||u.type==='pup'){const cr=G.crushU[ui]||(G.crushU[ui]=newCrush());
+      applyCrush(cr,u.kp-u.len,u.kp,u.w/2,clamp(lf,u.kp-u.len,u.kp),clamp(ll,-u.w/2,u.w/2),dd,u.len*.3,u.w/2*.9);}
+    else{const arr=G.udents[ui]||(G.udents[ui]=[]);addDent(arr,c.hx,c.hy,c.ph,cx,cy,E);}};
+  if(!hit.isTrl){G.cab=Math.max(0,G.cab-td);const T=TRK,c0=Math.cos(s.th),s0=Math.sin(s.th),dx0=cx-s.x,dy0=cy-s.y;
+    applyCrush(G.crushT,T.cab,T.bumper,T.half,clamp(dx0*c0+dy0*s0,T.cab,T.bumper),clamp(-dx0*s0+dy0*c0,-T.half,T.half),dV,(T.bumper-T.cab)*.6,T.half*.9);
+    let mxF=0;for(const i in G.crushT.F)mxF=Math.max(mxF,G.crushT.F[i]);G.crumple=Math.min(4.5,mxF);
+    if(o.type==='trailer'&&hit.tu!=null){unitCrush(hit.tu,dV*.8);G.trl=Math.max(0,G.trl-td*.5);}}
+  else{G.trl=Math.max(0,G.trl-td*.8);unitCrush(hit.ui,dV*.9);}
+  if(prop&&OB_SOFT[o.type]){const oc=st.crush[o.id]||(st.crush[o.id]={F:{},B:{},L:{},R:{},t:T,d:0});
+    const left=1-Math.min(1,(T-oc.t)/repairSecs(oc.d));
+    if(left<1)for(const f of['F','B','L','R'])for(const i in oc[f])oc[f][i]=Math.round(oc[f][i]*left*100)/100;
+    oc.d=Math.round((oc.d*left+E)*10)/10;oc.t=T;const thin=Math.min(o.hl,o.hw)<1.6;
+    applyCrush(oc,o.cx-o.hl,o.cx+o.hl,o.hw,cx,cy-o.cy,(.25+Math.sqrt(E)*.55)*OB_SOFT[o.type],thin?6:2*o.hl*.9,thin?6:2*o.hw*.9);}
   const k=clamp(mph/25,0,1);
-  if(!extra){const pts=Math.round(20+.5*mph*mph);G.cool['crash'+o.id]=0;
-    penalize('crash'+o.id,pts,(broke?'Smashed through the ':'Hit the ')+o.label+' at '+mph.toFixed(0)+' mph',.4);
-    G.shake=Math.max(G.shake,.2+k*.8);crashSnd(k);}
-  const dx=cx-b.cx,dy=cy-b.cy,n=Math.min(40,Math.round(4+E/2));
+  if(!extra){
+    if(mph<3)penalize(o.id,o.type==='dock'?50:o.type==='trailer'?30:o.tall?60:40,'Hit the '+o.label,1.2);
+    else{const pts=Math.round(20+.5*mph*mph);G.cool['crash'+o.id]=0;
+      penalize('crash'+o.id,pts,(broke?'Smashed through the ':'Hit the ')+o.label+' at '+mph.toFixed(0)+' mph',.4);}
+    G.shake=Math.max(G.shake,.15+k*.85);crashSnd(Math.max(.12,k));}
+  const dx=cx-b.cx,dy=cy-b.cy,n=Math.min(40,Math.round(1+E/2));
   const tc=hit.isTrl?[PAL.trl,PAL.trlEdge,PAL.trlTire]:TRK.paint.map(col).concat([PAL.glass,PAL.bumper,PAL.frame]);
   spawnChunks(cx,cy,-dx,-dy,Math.ceil(n*.5),tc,1);
   spawnChunks(cx,cy,dx,dy,n,(MAT[o.type]||['gravel2','rubble']).map(q=>PAL[q]),broke?1.6:1.1);
@@ -872,7 +948,7 @@ function crash(hit,mph,extra){
 function totaled(){
   const s=G.s,T=TRK;G.total=true;G.cab=0;G.throttle=0;
   const st=dstore();st.wrecks.push({x:Math.round(s.x*10)/10,y:Math.round(s.y*10)/10,th:Math.round(s.th*1000)/1000,tail:T.tail,cab:T.cab,
-    bumper:Math.round((T.bumper-G.crumple)*10)/10,half:T.half,L:T.L,track:T.track,t:Math.round(tnow()),run:G.runId});
+    bumper:Math.round((T.bumper-G.crumple)*10)/10,b0:T.bumper,cr:JSON.parse(JSON.stringify(G.crushT)),half:T.half,L:T.L,track:T.track,t:Math.round(tnow()),run:G.runId});
   if(st.wrecks.length>12)st.wrecks.shift();G.dirty=true;
   setTimeout(()=>crashSnd(.7),180);
   const lines=['The insurance adjuster just sighed','Yard crew is bringing the loader','Dispatch wants a word','The goat horn still works'];
@@ -903,6 +979,7 @@ function speck(x0,y0,x1,y1,dens,cx,cy,rad){
 }
 function drawScars(){
   const st=dstore(),T=tnow();
+  for(const id in st.crush){const o=OBI[id],oc=st.crush[id];if(!o)continue;const p=(T-oc.t)/repairSecs(oc.d);if(p<1)drawObCrush(o,oc,1-p);}
   for(const o of OBST){
     if(o.type==='berm'){fillOBB(o.cx,o.cy,0,o.hl,o.hw,PAL.soft2);continue;}
     if(o.hp>=9999)continue;const r=st.obs[o.id];if(!r)continue;const p=(T-r.t)/repairSecs(r.d);if(p>=1)continue;
@@ -918,7 +995,8 @@ function drawChunks(){for(const k of chunks)fillOBB(k.x,k.y-k.z*.5,k.a,k.s,k.s*.
 function drawWrecks(){for(const w of dstore().wrecks){if(w.run===G.runId)continue;
   part(w.x,w.y,w.th,w.tail,w.cab,-1.9,1.9,PAL.frame);
   for(const f of[w.L,0])for(const sd of[-1,1])part(w.x,w.y,w.th,f-1.6,f+1.6,sd*w.track-.6,sd*w.track+.6,PAL.tire);
-  part(w.x,w.y,w.th,w.cab,w.bumper,-w.half,w.half,PAL.wreck);part(w.x,w.y,w.th,w.cab+1,w.bumper-1.5,-w.half+.8,w.half-.8,PAL.wreck2);
+  if(w.cr&&w.b0&&hasCrush(w.cr))drawCrushBody(w.x,w.y,w.th,w.cab,w.b0,w.half,w.cr,(f,l)=>Math.abs(l)<w.half-.8&&f>w.cab+1?PAL.wreck2:PAL.wreck,.5);
+  else{part(w.x,w.y,w.th,w.cab,w.bumper,-w.half,w.half,PAL.wreck);part(w.x,w.y,w.th,w.cab+1,w.bumper-1.5,-w.half+.8,w.half-.8,PAL.wreck2);}
   part(w.x,w.y,w.th,w.cab+2,w.cab+4,-1.5,.5,PAL.scorch);part(w.x,w.y,w.th,w.bumper-3,w.bumper-1.8,0,2.2,PAL.scorch);}}
 // BLUE PHONE: a crew on every damaged spot, a barricade, and a bar that fills as they rebuild
 function drawCrews(){const st=dstore(),T=tnow(),tt=now(),seen={};
@@ -1170,7 +1248,8 @@ function drawTractorLower(){
 }
 function drawTractorUpper(){
   const s=G.s,a=s.th,ca=Math.cos(a),sa=Math.sin(a),T=TRK,B=T.bumper-G.crumple,[p1,p2]=G.total?[PAL.wreck,PAL.wreck2]:T.paint.map(col);
-  switch(T.style){
+  if(hasCrush(G.crushT))drawCrushBody(s.x,s.y,a,T.cab,T.bumper,T.half,G.crushT,cabColor(T,p1,p2),.5);
+  else{switch(T.style){
     case 'conv':part(s.x,s.y,a,T.cab,B,-T.half,T.half,p1);part(s.x,s.y,a,T.cab,T.cab+5.5,-T.half,T.half,p2);break;
     case 'sleeper':part(s.x,s.y,a,T.cab,B,-T.half,T.half,p1);part(s.x,s.y,a,T.cab,T.cab+6.5,-T.half,T.half,p2);
       part(s.x,s.y,a,T.cab+6.5,T.cab+11,-T.half+.6,T.half-.6,p1);break;
@@ -1179,7 +1258,7 @@ function drawTractorUpper(){
     case 'heavy':part(s.x,s.y,a,T.cab,B,-T.half,T.half,p1);part(s.x,s.y,a,T.cab,T.cab+6,-T.half,T.half,p2);
       part(s.x,s.y,a,T.cab+6,B-1,-1.2,1.2,p2);break;
   }
-  part(s.x,s.y,a,B-.6,B+.2,-T.half-.1,T.half+.1,PAL.bumper);
+  part(s.x,s.y,a,B-.6,B+.2,-T.half-.1,T.half+.1,PAL.bumper);}
   // BLUE PHONE: dents and crushed panels where the cab took hits
   if(G.total){part(s.x,s.y,a,T.cab+2,T.cab+4,-1.5,.5,PAL.scorch);part(s.x,s.y,a,B-3,B-1.8,0,2.2,PAL.scorch);}
   for(const d of G.dents){const f0=Math.max(T.cab,d.f-d.r),f1=Math.min(B,d.f+d.r),l0=Math.max(-T.half,d.l-d.r),l1=Math.min(T.half,d.l+d.r);
@@ -1198,10 +1277,12 @@ function drawUnit(c,high){
   switch(u.type){
     case 'van':case 'pup':{
       const fr=u.kp,rr=u.kp-u.len;
-      P(rr,fr,-u.w/2,u.w/2,PAL.trlEdge);P(rr+.5,fr-.5,-u.w/2+.5,u.w/2-.5,PAL.trl);
+      const crU=G.crushU[c.i],crushed=hasCrush(crU);
+      if(crushed)drawCrushBody(c.hx,c.hy,a,rr,fr,u.w/2,crU,boxColor(u),1);
+      else{P(rr,fr,-u.w/2,u.w/2,PAL.trlEdge);P(rr+.5,fr-.5,-u.w/2+.5,u.w/2-.5,PAL.trl);}
       axleTires(c,-u.d,u.spread,u.spread?2:1,2.3,4,PAL.trlTire);
       if(u.legs)for(const sd of[-1,1])P(-12.5,-11.5,sd*3.3-.5,sd*3.3+.5,G.s.coupled||c.i>0?PAL.leg:PAL.legDown);
-      P(-.6,.6,-.6,.6,PAL.kingpin);P(rr+.5,rr+1.1,-u.w/2+.5,u.w/2-.5,PAL.trlDoor);
+      P(-.6,.6,-.6,.6,PAL.kingpin);if(!crushed)P(rr+.5,rr+1.1,-u.w/2+.5,u.w/2-.5,PAL.trlDoor);
       if(u.b!=null)P(-u.d+u.b-1,-u.d+u.b+.6,-.5,.5,PAL.kingpin);
       break;}
     case 'dolly':
