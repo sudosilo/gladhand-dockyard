@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>trailer backing sim v5</title>
+<title>gladhand dockyard v6</title>
 <!--
 RED PHONE: trailer backing sim v5
 RED PHONE: v4 written on the Red phone in chat with Claude Opus 5.5, Oct 11 2026 (single van, dock yard, inspection, air lines, magnetic coupling)
@@ -12,6 +12,11 @@ RED PHONE: v5 adds: articulated chain physics (any number of units, steerable re
 RED PHONE: wind turbine blade on an extendable trailer with rear steer, excavator on a lowboy, a big haul route map with a turbine pad,
 RED PHONE: dispatch screen, minimap, backup beeper and air sounds, horn, best scores saved on the device
 RED PHONE: trucks are generic classes, not copies of any brand's design. no name chosen for the game yet
+BLUE PHONE: v6 written in chat with Claude Opus 5.5, Oct 12 2026, deployed as gladhand-dockyard
+BLUE PHONE: v6 adds: crash damage that scales with speed and weight, a cab that crumples and gets totaled, flying wreckage,
+BLUE PHONE: fences, rails, poles, signs, docks and shacks that break and can be driven through, craters on buildings and towers,
+BLUE PHONE: damage and debris saved on the device per map, repair crews that rebuild it in real time, wrecks left until towed,
+BLUE PHONE: property damage total per map on the dispatch screen, and a rig button that rebuilds everything
 -->
 <style>
 /* RED PHONE: palette from the truck yard. light concrete panels, safety yellow, DOT red, glad hand blue. no dark backgrounds */
@@ -58,6 +63,7 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 .opt .on{font-size:15px;font-weight:900;line-height:1.15}
 .opt .od{font-size:12.5px;color:var(--ink2);line-height:1.3;margin-top:3px}
 .opt .ob{font-size:12px;font-weight:800;color:var(--green);margin-top:3px}
+.opt .ob.red{color:var(--red)}
 .opt.sel{border-color:var(--amber);background:#f8e7bf;box-shadow:0 3px 0 var(--amber)}
 .opt.off{opacity:.55}
 #rollOut{display:block;width:100%;margin-top:16px;padding:15px 0;background:var(--yellow);border:2px solid #b58d12;border-radius:10px;font-size:20px;font-weight:900;color:#3a2f05;box-shadow:0 4px 0 #b58d12}
@@ -82,11 +88,11 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 .v.good{color:var(--green)}.v.warn{color:var(--amber)}.v.bad{color:var(--red)}
 #speedo{width:84px;height:84px;flex:none}
 
-#ticker{position:absolute;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 98px);width:max-content;max-width:94vw;background:var(--yellow);border:2px solid #b58d12;border-radius:6px;padding:4px 12px;font-size:14px;font-weight:800;text-align:center;pointer-events:none;color:#3a2f05}
+#ticker{position:absolute;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 126px);width:max-content;max-width:94vw;background:var(--yellow);border:2px solid #b58d12;border-radius:6px;padding:4px 12px;font-size:14px;font-weight:800;text-align:center;pointer-events:none;color:#3a2f05}
 
-#mm{position:absolute;left:8px;top:calc(env(safe-area-inset-top,0px) + 134px);width:104px;height:80px;border:2px solid var(--edge);border-radius:6px;background:var(--panel);pointer-events:none}
+#mm{position:absolute;left:8px;top:calc(env(safe-area-inset-top,0px) + 162px);width:104px;height:80px;border:2px solid var(--edge);border-radius:6px;background:var(--panel);pointer-events:none}
 
-#side{position:absolute;right:8px;top:calc(env(safe-area-inset-top,0px) + 134px);display:flex;flex-direction:column;gap:6px}
+#side{position:absolute;right:8px;top:calc(env(safe-area-inset-top,0px) + 162px);display:flex;flex-direction:column;gap:6px}
 .sbtn{width:56px;height:34px;background:var(--panel);border:1px solid var(--edge);border-radius:6px;font-size:12px;font-weight:800}
 .sbtn.on{background:#cfe0f4;border-color:var(--blue)}
 
@@ -124,6 +130,7 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 
 #card{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);background:var(--panel);border:3px solid var(--green);border-radius:10px;padding:14px 18px;text-align:center;width:min(300px,88vw);display:none;box-shadow:0 5px 0 #8fb58f}
 #card.on{display:block}
+#card.low{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 236px);transform:translate(-50%,0)}
 #card .g{font-size:40px;font-weight:900;color:var(--green);line-height:1}
 #card .t{font-size:15px;font-weight:800;margin-top:4px}
 #card .d{font-size:13px;color:var(--ink2);margin-top:6px;line-height:1.4}
@@ -196,6 +203,9 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
       <div class="chip"><span class="k">Score</span><span class="v" id="cScore">1000</span></div>
       <div class="chip"><span class="k">5th wheel</span><span class="v" id="cFifth">Open</span></div>
       <div class="chip"><span class="k" id="cGoalK">Door</span><span class="v" id="cDoor">None</span></div>
+      <div class="chip"><span class="k">Cab</span><span class="v" id="cCab">100%</span></div>
+      <div class="chip"><span class="k">Trailer</span><span class="v" id="cTrl">100%</span></div>
+      <div class="chip"><span class="k">Damage</span><span class="v" id="cYard">$0</span></div>
     </div>
     <canvas id="speedo"></canvas>
   </div>
@@ -258,6 +268,7 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
         <button id="bCenter">Center wheel</button>
         <button id="bRestart">New inspection</button>
         <button id="bMute">Sound on</button>
+        <button id="bRebuild">Rebuild the place</button>
         <button class="close" id="bClose">Back to driving</button>
       </div>
     </div>
@@ -434,7 +445,9 @@ const PAL={};
  ['deck','#8e8a80'],['deck2','#a29e93'],['exc','#e07a1f'],['exc2','#f0a35a'],['exc3','#a85512'],['track','#4b4741'],
  ['blade','#f6f7f5'],['bladeE','#aeb3b6'],['bladeRoot','#c9ccce'],
  ['guideT','#f2c230'],['guideR','#c8362b'],['slipLo','#e8b81c'],['slipHi','#c8362b'],['smoke','#f3f1ea'],['dirt','#a9824f'],
- ['target','#2a62b0'],['cone','#ee7a22'],['cone2','#f7f5ef']
+ ['target','#2a62b0'],['cone','#ee7a22'],['cone2','#f7f5ef'],
+ ['rubble','#8a8377'],['rubble2','#6b655b'],['scorch','#57524a'],['dent','#5f5a52'],['newFence','#c9c2b2'],
+ ['wreck','#5c574f'],['wreck2','#7a7368'],['smokeD','#8f8b82'],['fire','#e8662a'],['vest','#ee7a22'],['helmet','#fbfaf5'],['good','#3f8a3f']
 ].forEach(([k,v])=>PAL[k]=col(v));
 
 // =====================================================================
@@ -444,7 +457,15 @@ const PPF=2;
 let MAP=null,W=360,H=300,surf=null,world=null,WPX=0,HPX=0,OBST=[],DOORS=[],CONE_HOME=[],cones=[],PAD=null,oid=0,mmImg=null;
 function zone(x0,y0,x1,y1,t){for(let y=Math.max(0,Math.floor(y0));y<Math.min(H,Math.ceil(y1));y++)for(let x=Math.max(0,Math.floor(x0));x<Math.min(W,Math.ceil(x1));x++)surf[y*W+x]=t;}
 function surfAt(x,y){const ix=Math.floor(x),iy=Math.floor(y);if(ix<0||iy<0||ix>=W||iy>=H)return S_DES;return surf[iy*W+ix];}
-function ob(x,y,w,h,type,label,tall){OBST.push({id:'o'+(oid++),type,label,tall:!!tall,cx:x+w/2,cy:y+h/2,ang:0,hl:w/2,hw:h/2});}
+// BLUE PHONE: how much hit each kind of structure takes before it breaks open. anything not listed never breaks
+const BRK={wall:30,rail:55,pole:22,sign:8,shack:70,dock:35};
+function addOb(x,y,w,h,type,label,tall){OBST.push({id:'o'+(oid++),type,label,tall:!!tall,cx:x+w/2,cy:y+h/2,ang:0,hl:w/2,hw:h/2,hp:BRK[type]||9999});}
+function ob(x,y,w,h,type,label,tall){
+  // BLUE PHONE: long fences and rails split into short panels so a crash breaks one panel, not the whole line
+  if((type==='wall'||type==='rail')&&Math.max(w,h)>16){const n=Math.ceil(Math.max(w,h)/12);
+    for(let i=0;i<n;i++){if(w>=h)addOb(x+w*i/n,y,w/n,h,type,label,tall);else addOb(x,y+h*i/n,w,h/n,type,label,tall);}return;}
+  addOb(x,y,w,h,type,label,tall);
+}
 function hsh(x,y){let h=(x*374761393+y*668265263)|0;h=(h^(h>>>13))*1274126177;return ((h^(h>>>16))>>>0)%100;}
 function wfill(x0,y0,x1,y1,c){const a=Math.max(0,Math.round(x0*PPF)),b=Math.min(WPX,Math.round(x1*PPF)),cc=Math.max(0,Math.round(y0*PPF)),d=Math.min(HPX,Math.round(y1*PPF));for(let y=cc;y<d;y++)if(b>a)world.fill(c,y*WPX+a,y*WPX+b);}
 function wdot(x,y,c){const X=Math.round(x*PPF),Y=Math.round(y*PPF);if(X>=0&&Y>=0&&X<WPX&&Y<HPX)world[Y*WPX+X]=c;}
@@ -572,7 +593,7 @@ const MAPS={
 };
 function loadMap(key){
   MAP=MAPS[key];W=MAP.W;H=MAP.H;surf=new Uint8Array(W*H);WPX=W*PPF;HPX=H*PPF;world=new Uint32Array(WPX*HPX);
-  OBST=[];DOORS=[];PAD=null;oid=0;MAP.build();buildMini();resetCones();
+  OBST=[];DOORS=[];PAD=null;oid=0;MAP.build();addBerms();buildMini();resetCones();pruneDmg();
 }
 function resetCones(){cones=CONE_HOME.map(([x,y],i)=>({id:'c'+i,x,y,knock:false,vx:0,vy:0,ang:0}));}
 
@@ -590,6 +611,7 @@ const G={
   cool:{},stuckT:0,msgUntil:0,jokeT:0,joke:'',
   target:null,pullups:0,dockT:0,cardUntil:0,done:false,lastDoor:null,
   guide:true,zoom:1,shake:0,camX:0,camY:0,camInit:false,
+  cab:100,trl:100,total:false,dents:[],udents:[],crumple:0,runId:0,dirty:false,saveT:1,pruneT:0,
 };
 let TRK=TRACTORS.daycab,U=[];
 let parts=[];
@@ -618,6 +640,7 @@ function startPose(){
   G.lineE=false;G.lineS=false;G.gear='N';G.wheelDeg=0;G.throttle=0;G.rsIn=0;G.centering=false;
   G.sink={};G.inSurf={};G.om=[];G.slipU=[];G.slide=0;
   G.target=null;G.pullups=0;G.dockT=0;G.done=false;G.camInit=false;G.tires=100;G.stuckT=0;G.armed=true;
+  G.cab=100;G.trl=100;G.total=false;G.dents=[];G.udents=[];G.crumple=0;G.runId=Date.now();
 }
 function weights(){
   let trailerW=0;for(const u of U)trailerW+=u.empty+u.load;
@@ -686,19 +709,20 @@ function near(a,b){const r=a.hl+a.hw+b.hl+b.hw;return Math.abs(a.cx-b.cx)<r&&Mat
 function legBoxes(c){const out=[];for(const sd of[-1,1]){const l=sd*3.3;out.push({cx:c.hx-c.c*12-c.s*l,cy:c.hy-c.s*12+c.c*l,ang:c.ph,hl:.5,hw:.5});}return out;}
 function findHit(s){
   const T=tractorBoxes(s),ch=chain(s);
-  const moving=[T.full];
-  if(s.coupled)for(const c of ch)for(const b of unitBoxes(c))moving.push(b);
-  for(const o of OBST)for(const b of moving){if(b.high&&!o.tall)continue;if(near(b,o)&&obbHit(b,o))return{o,isTrl:b!==T.full};}
+  const moving=[{b:T.full,ui:-1}];
+  if(s.coupled)for(const c of ch)for(const b of unitBoxes(c))moving.push({b,ui:c.i});
+  for(const o of OBST)for(const m of moving){const b=m.b;if(b.high&&!o.tall)continue;
+    if(near(b,o)&&obbHit(b,o)){if(o.hp<9999&&isBroken(o))break;return{o,isTrl:m.ui>=0,b,ui:m.ui};}}
   if(!s.coupled){
     const Tr={id:'dt',type:'trailer',label:'trailer'},c0=ch[0];
     const ahead=(s.x-c0.hx)*c0.c+(s.y-c0.hy)*c0.s,lined=Math.abs(normA(s.th-c0.ph))<.52;
     for(const c of ch)for(const b of unitBoxes(c)){
       if(b.high)continue;
-      if(obbHit(T.cab,b))return{o:Tr};
+      if(obbHit(T.cab,b))return{o:Tr,b:T.cab,ob:b};
       if(c.i===0&&lined&&ahead>-2)continue;   // RED PHONE: frame may slide under the first nose, lined up, from the front
-      if(obbHit(T.tail,b))return{o:Tr};
+      if(obbHit(T.tail,b))return{o:Tr,b:T.tail,ob:b};
     }
-    if(c0.u.legs)for(const l of legBoxes(c0))if(obbHit(T.full,l))return{o:{id:'legs',type:'legs',label:'landing gear'}};
+    if(c0.u.legs)for(const l of legBoxes(c0))if(obbHit(T.full,l))return{o:{id:'legs',type:'legs',label:'landing gear'},b:T.full,ob:l};
   }
   return null;
 }
@@ -715,6 +739,12 @@ function hiss(dur,vol){const a=sndOn&&ac();if(!a)return;const n=Math.floor(a.sam
 function horn(){const a=sndOn&&ac();if(!a)return;const t=a.currentTime,g=a.createGain(),l=a.createOscillator(),lg=a.createGain();
   l.frequency.value=7;lg.gain.value=18;l.connect(lg);g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(.08,t+.04);g.gain.setValueAtTime(.08,t+.6);g.gain.exponentialRampToValueAtTime(.0001,t+.85);g.connect(a.destination);
   for(const f of[290,368]){const o=a.createOscillator();o.type='sawtooth';o.frequency.value=f;lg.connect(o.frequency);o.connect(g);o.start(t);o.stop(t+.9);}l.start(t);l.stop(t+.9);}
+// BLUE PHONE: crash sound. low thump plus a burst of crunch, bigger with speed
+function crashSnd(k){const a=sndOn&&ac();if(!a)return;const dur=.25+k*.6,n=Math.floor(a.sampleRate*dur),bf=a.createBuffer(1,n,a.sampleRate),d=bf.getChannelData(0);
+  for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,2);
+  const src=a.createBufferSource(),f=a.createBiquadFilter(),g=a.createGain();f.type='lowpass';f.frequency.value=500+k*1600;g.gain.value=.1+.3*k;
+  src.buffer=bf;src.connect(f);f.connect(g);g.connect(a.destination);src.start();tone(55,.3+k*.4,'sawtooth',.12+.1*k,28);
+  if(k>.35)for(let i=0;i<4;i++)setTimeout(()=>tone(2200+Math.random()*1400,.07,'triangle',.035),60+i*55);}
 document.addEventListener('pointerdown',()=>{if(sndOn)ac();},{once:false,passive:true});
 
 // =====================================================================
@@ -771,6 +801,134 @@ function jerryRig(){
 // =====================================================================
 // RED PHONE: per frame simulation
 // =====================================================================
+
+// =====================================================================
+// BLUE PHONE: crash damage, broken structures, wreckage, repair crews
+// BLUE PHONE: everything that happens to the place is saved on the device per map and repaired in real time
+// =====================================================================
+const DMGKEY='tbs-damage',DEBRIS_SECS=4*3600,WRECK_SECS=2*3600;
+let DMG={};try{DMG=JSON.parse(localStorage.getItem(DMGKEY)||'{}')||{};}catch(e){DMG={};}
+let chunks=[];
+const tnow=()=>Date.now()/1000;
+function saveDmg(){try{localStorage.setItem(DMGKEY,JSON.stringify(DMG));}catch(e){}}
+function dstore(){const k=builtMap||G.map;let st=DMG[k];if(!st)st=DMG[k]={};st.obs=st.obs||{};st.marks=st.marks||[];st.debris=st.debris||[];st.wrecks=st.wrecks||[];st.cost=st.cost||0;return st;}
+function repairSecs(d){return Math.min(3*3600,600+d*60);}
+function obsDmg(o){const r=dstore().obs[o.id];if(!r)return 0;const p=(tnow()-r.t)/repairSecs(r.d);return p>=1?0:r.d*(1-p);}
+// BLUE PHONE: a structure stays broken open until the crew is halfway through the repair, then it is solid again
+function isBroken(o){const r=dstore().obs[o.id];if(!r||r.d<o.hp)return false;return (tnow()-r.t)/repairSecs(r.d)<.5;}
+function pruneDmg(){const T=tnow();for(const k in DMG){const st=DMG[k];if(!st)continue;
+  for(const id in (st.obs||{})){const r=st.obs[id];if(T-r.t>=repairSecs(r.d))delete st.obs[id];}
+  st.marks=(st.marks||[]).filter(m=>T-m.t<repairSecs(m.s));st.debris=(st.debris||[]).filter(d=>T-d.t<DEBRIS_SECS);st.wrecks=(st.wrecks||[]).filter(w=>T-w.t<WRECK_SECS);}}
+function money(n){n=Math.round(n||0);return n>=1e6?'$'+(n/1e6).toFixed(1)+'M':n>=1e4?'$'+Math.round(n/1e3)+'k':'$'+n.toLocaleString();}
+function addBerms(){const B=30;
+  // BLUE PHONE: dirt berm past the fence line so a truck that busts out of the map stops in the desert
+  addOb(-B-4,-B-4,W+2*B+8,4,'berm','dirt berm',false);addOb(-B-4,H+B,W+2*B+8,4,'berm','dirt berm',false);
+  addOb(-B-4,-B,4,H+2*B,'berm','dirt berm',false);addOb(W+B,-B,4,H+2*B,'berm','dirt berm',false);}
+function closestOBB(B,px,py){const c=Math.cos(B.ang),s=Math.sin(B.ang),dx=px-B.cx,dy=py-B.cy;
+  const u=clamp(dx*c+dy*s,-B.hl,B.hl),v=clamp(-dx*s+dy*c,-B.hw,B.hw);return[B.cx+u*c-v*s,B.cy+u*s+v*c];}
+function addDent(arr,ox,oy,ang,cx,cy,E){const c=Math.cos(ang),s=Math.sin(ang),dx=cx-ox,dy=cy-oy;
+  const f=dx*c+dy*s,l=-dx*s+dy*c,r=clamp(.6+Math.sqrt(E)*.25,.6,3);arr.push({f,l,r,k:arr.length%2});
+  if(E>20)for(let i=0;i<2;i++)arr.push({f:f+(Math.random()-.5)*r*3,l:l+(Math.random()-.5)*r*3,r:r*.6,k:(arr.length)%2});
+  if(arr.length>40)arr.splice(0,arr.length-40);}
+function addMark(x,y,E,o){const st=dstore(),T=tnow();
+  for(const m of st.marks)if(m.o===o.id&&Math.hypot(m.x-x,m.y-y)<4){const left=1-Math.min(1,(T-m.t)/repairSecs(m.s));m.s=Math.round((m.s*left+E)*10)/10;m.t=T;return;}
+  st.marks.push({x:Math.round(x*10)/10,y:Math.round(y*10)/10,s:Math.round(E*10)/10,t:T,o:o.id});if(st.marks.length>200)st.marks.shift();}
+function spawnChunks(x,y,dx,dy,n,cols,spd){const base=Math.atan2(dy,dx);
+  for(let i=0;i<n&&chunks.length<180;i++){const a=base+(Math.random()-.5)*2.4,sp=(4+Math.random()*12)*spd;
+    chunks.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,z:.5+Math.random()*2,vz:5+Math.random()*12*spd,a:Math.random()*6,va:(Math.random()-.5)*14,
+      c:cols[Math.floor(Math.random()*cols.length)],s:.35+Math.random()*.75,life:0});}}
+function settle(k){const st=dstore();st.debris.push({x:Math.round(k.x*10)/10,y:Math.round(k.y*10)/10,a:Math.round(k.a*100)/100,s:Math.round(k.s*100)/100,c:k.c,t:Math.round(tnow())});
+  if(st.debris.length>600)st.debris.splice(0,st.debris.length-600);G.dirty=true;}
+const BASE$={building:2400,tower:9000,parked:1800,shack:1500,dock:1200,wall:350,rail:900,pole:700,sign:250};
+const MAT={wall:['fence','pole'],building:['roof','roofEdge','hvac','door'],dock:['dockB','door'],pole:['wood','pole'],sign:['sign','pole','wood'],
+  shack:['shack','shackE','glass'],parked:['parked','parkedE','trlTire'],tower:['tower','tower2'],rail:['rail','concrete'],berm:['soft','soft2','dirt'],
+  trailer:['trl','trlEdge'],legs:['leg','frame']};
+// BLUE PHONE: impact energy grows with the square of speed and with the weight of the rig
+function crash(hit,mph,extra){
+  const o=hit.o,s=G.s,b=hit.b;
+  if(o.type==='dock'&&hit.isTrl&&mph<3){if(mph>1.6)penalize(o.id,50,'Slammed the dock at '+mph.toFixed(1)+' mph',1.5);return false;}
+  if(mph<3){if(mph>.4){penalize(o.id,o.type==='trailer'?30:o.tall?60:40,'Hit the '+o.label,1.2);if(hit.isTrl)G.trl=Math.max(0,G.trl-1);else G.cab=Math.max(0,G.cab-1);}return false;}
+  const geo=o.cx!=null?o:hit.ob,[cx,cy]=closestOBB(geo,b.cx,b.cy);
+  const w=weights(),mf=Math.min(2.5,w.gvw/40000),E=mph*mph/4*mf;
+  const prop=o.type!=='trailer'&&o.type!=='legs'&&o.type!=='berm',st=dstore(),T=tnow();let broke=false;
+  if(prop&&o.hp<9999){const nd=obsDmg(o)+E;st.obs[o.id]={d:Math.round(nd*10)/10,t:T};if(nd>=o.hp)broke=true;}
+  if(prop){addMark(cx,cy,E,o);st.cost+=Math.round((BASE$[o.type]||500)*(.4+E/20));}
+  const solidK=broke?.7:(o.type==='building'||o.type==='tower'||o.type==='berm'?1.3:o.type==='sign'?.3:1);
+  const td=100*Math.pow(mph/20,2)*(.6+.4*Math.min(2,mf))*solidK*(extra?.5:1);
+  if(!hit.isTrl){G.cab=Math.max(0,G.cab-td);addDent(G.dents,s.x,s.y,s.th,cx,cy,E);
+    const fwd=(cx-s.x)*Math.cos(s.th)+(cy-s.y)*Math.sin(s.th);if(fwd>TRK.cab)G.crumple=Math.min(4.5,G.crumple+td*.05);}
+  else{G.trl=Math.max(0,G.trl-td*.8);const c=chain(s)[hit.ui];if(c){const arr=G.udents[hit.ui]||(G.udents[hit.ui]=[]);addDent(arr,c.hx,c.hy,c.ph,cx,cy,E);}}
+  const k=clamp(mph/25,0,1);
+  if(!extra){const pts=Math.round(20+.5*mph*mph);G.cool['crash'+o.id]=0;
+    penalize('crash'+o.id,pts,(broke?'Smashed through the ':'Hit the ')+o.label+' at '+mph.toFixed(0)+' mph',.4);
+    G.shake=Math.max(G.shake,.2+k*.8);crashSnd(k);}
+  const dx=cx-b.cx,dy=cy-b.cy,n=Math.min(40,Math.round(4+E/2));
+  const tc=hit.isTrl?[PAL.trl,PAL.trlEdge,PAL.trlTire]:TRK.paint.map(col).concat([PAL.glass,PAL.bumper,PAL.frame]);
+  spawnChunks(cx,cy,-dx,-dy,Math.ceil(n*.5),tc,1);
+  spawnChunks(cx,cy,dx,dy,n,(MAT[o.type]||['gravel2','rubble']).map(q=>PAL[q]),broke?1.6:1.1);
+  G.dirty=true;
+  return broke;
+}
+function totaled(){
+  const s=G.s,T=TRK;G.total=true;G.cab=0;G.throttle=0;
+  const st=dstore();st.wrecks.push({x:Math.round(s.x*10)/10,y:Math.round(s.y*10)/10,th:Math.round(s.th*1000)/1000,tail:T.tail,cab:T.cab,
+    bumper:Math.round((T.bumper-G.crumple)*10)/10,half:T.half,L:T.L,track:T.track,t:Math.round(tnow()),run:G.runId});
+  if(st.wrecks.length>12)st.wrecks.shift();G.dirty=true;
+  setTimeout(()=>crashSnd(.7),180);
+  const lines=['The insurance adjuster just sighed','Yard crew is bringing the loader','Dispatch wants a word','The goat horn still works'];
+  const line=lines[Math.floor(Math.random()*lines.length)],run=G.runId;
+  // BLUE PHONE: card waits a moment so the wreck can be seen first, and sits low so it does not cover it
+  setTimeout(()=>{if(G.total&&G.runId===run)showCard('X','Totaled. '+line,'Penalties '+G.runPen+'. Score '+G.score+'. The wreck stays put until the tow truck clears it.',true,true);},2200);
+  msg('Cab destroyed. Engine is dead',5);
+}
+function damageFx(dt){
+  const s=G.s;
+  if(G.cab<55){const f=TRK.bumper-G.crumple-2,fx=s.x+Math.cos(s.th)*f,fy=s.y+Math.sin(s.th)*f;
+    if(Math.random()<(G.total?.9:.3))smoke([fx,fy],G.total?PAL.smokeD:PAL.smoke);if(G.total&&Math.random()<.5)smoke([fx,fy],PAL.fire);}
+  for(const k of chunks){k.life+=dt;k.x+=k.vx*dt;k.y+=k.vy*dt;k.a+=k.va*dt;
+    if(k.z>0||k.vz>0){k.vz-=50*dt;k.z+=k.vz*dt;if(k.z<=0){k.z=0;if(k.vz<-5){k.vz=-k.vz*.35;k.vx*=.6;k.vy*=.6;k.va*=.6;}else k.vz=0;}}
+    else{const fr=Math.pow(.02,dt);k.vx*=fr;k.vy*=fr;k.va*=fr;}
+    if((k.z===0&&k.vz===0&&Math.hypot(k.vx,k.vy)<.5)||k.life>4){k.dead=true;settle(k);}}
+  chunks=chunks.filter(k=>!k.dead);
+}
+function groundAt(x,y){switch(surfAt(x,y)){case S_ASP:return PAL.asphalt;case S_WET:return PAL.wet;case S_GRV:return PAL.gravel;case S_SOFT:return PAL.soft;
+  case S_CON:return PAL.concrete;case S_WASH:return PAL.wash;case S_BLD:return PAL.roof;default:return PAL.desert;}}
+// BLUE PHONE: rubble speckle, stable from frame to frame because it hashes world pixels
+function speck(x0,y0,x1,y1,dens,cx,cy,rad){
+  const[a,b]=toB(x0,y0),[c,d]=toB(x1,y1);const X0=Math.max(0,Math.floor(a)),X1=Math.min(bufW-1,Math.ceil(c)),Y0=Math.max(0,Math.floor(b)),Y1=Math.min(bufH-1,Math.ceil(d));
+  let bcx=0,bcy=0,r2=1;if(rad){[bcx,bcy]=toB(cx,cy);r2=rad*PPF;}
+  for(let y=Y0;y<=Y1;y++)for(let x=X0;x<=X1;x++){const wx=x+camPX,wy=y+camPY,h=hsh(wx,wy);
+    if(rad){const dd=Math.hypot(x-bcx,y-bcy)/r2;if(dd>1||h>=dens*100*(1.2-dd*.7))continue;}else if(h>=dens*100)continue;
+    const q=hsh(wx+7,wy*3)%3;fb[y*bufW+x]=q===0?PAL.scorch:q===1?PAL.rubble2:PAL.rubble;}
+}
+function drawScars(){
+  const st=dstore(),T=tnow();
+  for(const o of OBST){
+    if(o.type==='berm'){fillOBB(o.cx,o.cy,0,o.hl,o.hw,PAL.soft2);continue;}
+    if(o.hp>=9999)continue;const r=st.obs[o.id];if(!r)continue;const p=(T-r.t)/repairSecs(r.d);if(p>=1)continue;
+    if(r.d>=o.hp&&p<.5){
+      fillOBB(o.cx,o.cy,0,o.hl,o.hw,groundAt(o.cx,o.cy));speck(o.cx-o.hl,o.cy-o.hw,o.cx+o.hl,o.cy+o.hw,o.type==='shack'?.45:.25);
+      if(o.type==='wall'||o.type==='rail'){const lx=o.hl>o.hw;for(const sd of[-1,1]){const px=lx?o.cx+sd*(o.hl-.4):o.cx,py=lx?o.cy:o.cy+sd*(o.hw-.4);fillOBB(px,py,.5*sd,.5,.9,PAL.pole);}}
+    }else if(o.type==='wall'||o.type==='rail')fillOBB(o.cx,o.cy,0,o.hl,o.hw,PAL.newFence);
+  }
+  for(const m of st.marks){const p=(T-m.t)/repairSecs(m.s);if(p>=1)continue;const rad=clamp(.8+Math.sqrt(m.s)*.4,.8,8)*(1-p*.7);speck(m.x-rad,m.y-rad,m.x+rad,m.y+rad,.75,m.x,m.y,rad);}
+}
+function drawDebris(){for(const d of dstore().debris)fillOBB(d.x,d.y,d.a,d.s,d.s*.6,d.c);}
+function drawChunks(){for(const k of chunks)fillOBB(k.x,k.y-k.z*.5,k.a,k.s,k.s*.6,k.c);}
+function drawWrecks(){for(const w of dstore().wrecks){if(w.run===G.runId)continue;
+  part(w.x,w.y,w.th,w.tail,w.cab,-1.9,1.9,PAL.frame);
+  for(const f of[w.L,0])for(const sd of[-1,1])part(w.x,w.y,w.th,f-1.6,f+1.6,sd*w.track-.6,sd*w.track+.6,PAL.tire);
+  part(w.x,w.y,w.th,w.cab,w.bumper,-w.half,w.half,PAL.wreck);part(w.x,w.y,w.th,w.cab+1,w.bumper-1.5,-w.half+.8,w.half-.8,PAL.wreck2);
+  part(w.x,w.y,w.th,w.cab+2,w.cab+4,-1.5,.5,PAL.scorch);part(w.x,w.y,w.th,w.bumper-3,w.bumper-1.8,0,2.2,PAL.scorch);}}
+// BLUE PHONE: a crew on every damaged spot, a barricade, and a bar that fills as they rebuild
+function drawCrews(){const st=dstore(),T=tnow(),tt=now(),seen={};
+  for(const m of st.marks){const p=(T-m.t)/repairSecs(m.s);if(p>=1||m.s<4||seen[m.o])continue;seen[m.o]=1;
+    const sd=m.x*.37+m.y*.61,ox=Math.cos(sd)*3.5,oy=Math.sin(sd)*3.5;
+    fillOBB(m.x-ox,m.y-oy,sd+1.57,1.8,.4,PAL.cone);fillOBB(m.x-ox,m.y-oy,sd+1.57,.5,.42,PAL.cone2);
+    for(let i=0;i<(m.s>30?2:1);i++){const wb=Math.sin(tt*(3+i)+sd+i)*.6,wx=m.x+ox+(i?-oy*.6:0)+wb,wy=m.y+oy+(i?ox*.6:0);
+      fillOBB(wx,wy,0,.8,.8,PAL.vest);fillOBB(wx,wy-.2,0,.4,.4,PAL.helmet);}
+    const by=m.y-6;fillOBB(m.x,by,0,4.2,.6,PAL.lineW);if(p>0)fillOBB(m.x-4+4*p,by,0,4*p,.4,PAL.good);
+  }}
 function updateSink(name,si,dt,lf){
   const v=G.sink[name]||0;
   if(SURF[si].soft){const slow=Math.abs(G.s.v)<1.5?1.3:.6;G.sink[name]=Math.min(1,v+dt*(.1+.3*lf)*slow);}
@@ -815,8 +973,8 @@ function update(dt){
   // RED PHONE: drive force. gas works in whichever gear is selected. idle creep in D or R
   const dir=G.gear==='D'?1:G.gear==='R'?-1:0;
   let accel=0;
-  if(dir){
-    const aMax=Math.min(10,TRK.aMax*Math.pow(35000/w.gvw,.75));
+  if(dir&&!G.total){
+    const aMax=Math.min(10,TRK.aMax*Math.pow(35000/w.gvw,.75))*(.3+.7*G.cab/100);
     const traction=sD.mu*32.2*(w.drive/w.gvw);
     let want=G.throttle*aMax;
     if(!brk&&dir*s.v<2.2)want=Math.max(want,1.6);
@@ -829,6 +987,7 @@ function update(dt){
   if(s.coupled)ch.forEach(c=>{res+=(G.sink['u'+c.i]||0)*(2+5*c.u.load/c.u.maxLoad)/ch.length*1.6;});
   if(brk){const be=(!s.coupled?.8:(G.lineS?1:.45))*clamp(Math.pow(80000/w.gvw,.35),.6,1.2);res+=14*be*clamp(sD.mu/.75,.4,1);}
   if(TRK.regen&&G.gear==='D'&&G.throttle<.05&&!brk&&s.v>3)res+=2.2;
+  if(G.total)res+=12;   // BLUE PHONE: a totaled cab grinds to a stop dragging its own wreckage
   G.drag=s.coupled&&!G.lineE;
   if(G.drag){const mu0=SURF[iU[0]].mu;res+=.55*mu0*32.2*(w.trl/w.gvw);}
 
@@ -854,11 +1013,14 @@ function update(dt){
   // RED PHONE: collisions. stop short, charge for it, keep playing
   const hit=wasHit?null:findHit(s);
   if(hit){
-    const mph=Math.abs(prev.v)*MPH,o=hit.o;
-    s.x=prev.x;s.y=prev.y;s.th=prev.th;s.ph=prev.ph;s.kx=prev.kx;s.ky=prev.ky;s.v=0;
-    if(o.type==='dock'&&hit.isTrl){if(mph>1.6)penalize(o.id,50,'Slammed the dock at '+mph.toFixed(1)+' mph',1.5);}
-    else if(mph>.4)penalize(o.id,o.type==='trailer'?30:o.tall?60:40,'Hit the '+o.label,1.2);
+    // BLUE PHONE: a hard enough hit breaks the panel and the rig keeps going, slower. otherwise it stops dead
+    const mph=Math.abs(prev.v)*MPH;let thru=crash(hit,mph),h2=thru?findHit(s):null,g=0;
+    // BLUE PHONE: the bumper can span two fence panels, so a breakthrough keeps breaking whatever else it is pressed into
+    while(thru&&h2&&g++<4){thru=crash(h2,mph*.85,true);h2=thru?findHit(s):null;}
+    if(thru&&!h2)s.v=prev.v*.5;
+    else{s.x=prev.x;s.y=prev.y;s.th=prev.th;s.ph=prev.ph;s.kx=prev.kx;s.ky=prev.ky;s.v=0;}
   }
+  if(G.cab<=0&&!G.total)totaled();
 
   // RED PHONE: cones get knocked flying, no stop
   const T=tractorBoxes(s),ub=[];if(s.coupled)for(const c of chain(s))for(const b of unitBoxes(c))if(!b.high)ub.push(b);
@@ -911,10 +1073,11 @@ function update(dt){
   }
 
   // RED PHONE: backup beeper
-  if(G.gear==='R'&&(Math.abs(s.v)>.1||G.throttle>0||!brk)){beepT-=dt;if(beepT<=0){beepT=1;tone(1100,.42,'square',.035);}}else beepT=0;
+  if(G.gear==='R'&&!G.total&&(Math.abs(s.v)>.1||G.throttle>0||!brk)){beepT-=dt;if(beepT<=0){beepT=1;tone(1100,.42,'square',.035);}}else beepT=0;
 
   goals(dt);
 
+  damageFx(dt);
   for(const p of parts){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;}
   parts=parts.filter(p=>p.life>0);
   G.shake=Math.max(0,G.shake-dt);
@@ -926,7 +1089,7 @@ function smoke(pt,c){if(parts.length>200)return;parts.push({x:pt[0]+(Math.random
 // =====================================================================
 function rearOf(c){const u=c.u;if(u.type==='blade'){const f=BLADE_ROOT-BLADE_LEN;return[c.hx+c.c*f,c.hy+c.s*f];}const f=u.kp-u.len;return[c.hx+c.c*f,c.hy+c.s*f];}
 function goals(dt){
-  const s=G.s;if(G.done)return;
+  const s=G.s;if(G.done||G.total)return;
   if(MAP.goal==='docks'){
     if(s.coupled&&G.lineE&&G.lineS&&!G.target&&now()>G.cardUntil){
       const open=DOORS.filter(d=>!d.parked&&d!==G.lastDoor);G.target=open[Math.floor(Math.random()*open.length)];G.pullups=0;
@@ -963,9 +1126,10 @@ function delivered(){
   showCard(g,'Delivered to the pad. '+line,'Penalties '+G.runPen+'. Delivery +'+pts+'. Final '+G.score+(isBest?'. New best.':''),true);
   tone(660,.15,'triangle',.08);setTimeout(()=>tone(880,.15,'triangle',.08),150);setTimeout(()=>tone(990,.3,'triangle',.08),300);
 }
-function showCard(g,t,d,stay){
+function showCard(g,t,d,stay,red){
+  $('cardG').style.color=red?'var(--red)':'';$('card').style.borderColor=red?'var(--red)':'';$('card').style.boxShadow=red?'0 5px 0 #e7aaa2':'';
   $('cardG').textContent=g;$('cardT').textContent=t;$('cardD').textContent=d;
-  $('cardBtns').classList.toggle('on',!!stay);$('card').classList.add('on');
+  $('cardBtns').classList.toggle('on',!!stay);$('card').classList.toggle('low',!!stay);$('card').classList.add('on');
   if(!stay)setTimeout(()=>$('card').classList.remove('on'),3000);
 }
 
@@ -1005,17 +1169,21 @@ function drawTractorLower(){
   part(s.x,s.y,a,T.a-.7,T.a+.5,-.45,.45,PAL.slot);
 }
 function drawTractorUpper(){
-  const s=G.s,a=s.th,ca=Math.cos(a),sa=Math.sin(a),T=TRK,[p1,p2]=T.paint.map(col);
+  const s=G.s,a=s.th,ca=Math.cos(a),sa=Math.sin(a),T=TRK,B=T.bumper-G.crumple,[p1,p2]=G.total?[PAL.wreck,PAL.wreck2]:T.paint.map(col);
   switch(T.style){
-    case 'conv':part(s.x,s.y,a,T.cab,T.bumper,-T.half,T.half,p1);part(s.x,s.y,a,T.cab,T.cab+5.5,-T.half,T.half,p2);break;
-    case 'sleeper':part(s.x,s.y,a,T.cab,T.bumper,-T.half,T.half,p1);part(s.x,s.y,a,T.cab,T.cab+6.5,-T.half,T.half,p2);
+    case 'conv':part(s.x,s.y,a,T.cab,B,-T.half,T.half,p1);part(s.x,s.y,a,T.cab,T.cab+5.5,-T.half,T.half,p2);break;
+    case 'sleeper':part(s.x,s.y,a,T.cab,B,-T.half,T.half,p1);part(s.x,s.y,a,T.cab,T.cab+6.5,-T.half,T.half,p2);
       part(s.x,s.y,a,T.cab+6.5,T.cab+11,-T.half+.6,T.half-.6,p1);break;
-    case 'cabover':part(s.x,s.y,a,T.cab,T.bumper,-T.half,T.half,p1);part(s.x,s.y,a,T.cab,T.bumper-3,-T.half+1,T.half-1,p2);
-      part(s.x,s.y,a,T.bumper-2.6,T.bumper-1.2,-T.half+.4,T.half-.4,PAL.glass);break;
-    case 'heavy':part(s.x,s.y,a,T.cab,T.bumper,-T.half,T.half,p1);part(s.x,s.y,a,T.cab,T.cab+6,-T.half,T.half,p2);
-      part(s.x,s.y,a,T.cab+6,T.bumper-1,-1.2,1.2,p2);break;
+    case 'cabover':part(s.x,s.y,a,T.cab,B,-T.half,T.half,p1);part(s.x,s.y,a,T.cab,B-3,-T.half+1,T.half-1,p2);
+      part(s.x,s.y,a,B-2.6,B-1.2,-T.half+.4,T.half-.4,PAL.glass);break;
+    case 'heavy':part(s.x,s.y,a,T.cab,B,-T.half,T.half,p1);part(s.x,s.y,a,T.cab,T.cab+6,-T.half,T.half,p2);
+      part(s.x,s.y,a,T.cab+6,B-1,-1.2,1.2,p2);break;
   }
-  part(s.x,s.y,a,T.bumper-.6,T.bumper+.2,-T.half-.1,T.half+.1,PAL.bumper);
+  part(s.x,s.y,a,B-.6,B+.2,-T.half-.1,T.half+.1,PAL.bumper);
+  // BLUE PHONE: dents and crushed panels where the cab took hits
+  if(G.total){part(s.x,s.y,a,T.cab+2,T.cab+4,-1.5,.5,PAL.scorch);part(s.x,s.y,a,B-3,B-1.8,0,2.2,PAL.scorch);}
+  for(const d of G.dents){const f0=Math.max(T.cab,d.f-d.r),f1=Math.min(B,d.f+d.r),l0=Math.max(-T.half,d.l-d.r),l1=Math.min(T.half,d.l+d.r);
+    if(f1>f0&&l1>l0)part(s.x,s.y,a,f0,f1,l0,l1,d.k?PAL.rubble2:PAL.dent);}
   // RED PHONE: steer tires drawn on top so their angle is always readable
   for(const sd of[-1,1]){const l=sd*T.track;fillOBB(s.x+ca*T.L-sa*l,s.y+sa*T.L+ca*l,a+s.delta,1.75,.6,PAL.tire);}
 }
@@ -1053,6 +1221,11 @@ function drawUnit(c,high){
       if(u.legs)for(const sd of[-1,1])P(-12.5,-11.5,sd*3.3-.5,sd*3.3+.5,G.s.coupled?PAL.leg:PAL.legDown);
       P(-.6,.6,-.6,.6,PAL.kingpin);break;
   }
+  // BLUE PHONE: dents on the trailer where it took hits
+  const dz=G.udents[c.i];
+  if(dz){const ext=u.type==='blade'?[-u.d-6,u.kp,4.3]:u.type==='lowboy'?[u.kp-u.len,u.kp,5]:u.type==='dolly'?null:[u.kp-u.len,u.kp,u.w/2];
+    if(ext)for(const d of dz){const f0=Math.max(ext[0],d.f-d.r),f1=Math.min(ext[1],d.f+d.r),l0=Math.max(-ext[2],d.l-d.r),l1=Math.min(ext[2],d.l+d.r);
+      if(f1>f0&&l1>l0)P(f0,f1,l0,l1,d.k?PAL.trlEdge:PAL.dent);}}
 }
 function drawBlade(c){
   // RED PHONE: tapered blade, root forward, tip out past the rear dolly
@@ -1121,13 +1294,14 @@ function render(){
     if(x1<bufW)fb.fill(out,row+Math.max(0,x1),row+bufW);
     if(x1>x0)fb.set(world.subarray(wy*WPX+camPX+x0,wy*WPX+camPX+x1),row+x0);
   }
-  drawTarget();drawCones();drawGuide();
+  drawScars();drawDebris();drawWrecks();drawTarget();drawCones();drawCrews();drawGuide();
   drawTractorLower();
   for(let i=ch.length-1;i>=0;i--)drawUnit(ch[i],false);
   drawTractorUpper();
   for(const c of ch)drawUnit(c,true);
   drawSlip();
   for(const p of parts)dot2(p.x,p.y,p.c);
+  drawChunks();
   bctx.putImageData(img,0,0);
   vctx.imageSmoothingEnabled=false;
   vctx.drawImage(buf,0,0,bufW*scaleS,bufH*scaleS);
@@ -1193,6 +1367,8 @@ let hudT=0;
 function hud(dt){
   drawSpeedo();drawWheel();
   hudT-=dt;if(hudT>0)return;hudT=.1;
+  G.saveT-=.1;if(G.dirty&&G.saveT<=0){saveDmg();G.dirty=false;G.saveT=1;}
+  G.pruneT-=.1;if(G.pruneT<=0){G.pruneT=10;pruneDmg();}
   drawMini();
   const s=G.s;let worst=0,wsg=0;
   if(s.coupled)for(let i=0;i<U.length;i++){const r=jointRel(s,i)/DEG;if(Math.abs(r)>Math.abs(worst)){worst=r;wsg=i;}}
@@ -1203,6 +1379,9 @@ function hud(dt){
   const tt=$('cTire');tt.textContent=Math.round(G.tires)+'%';tt.className='v '+(G.tires<35?'bad':G.tires<70?'warn':'good');
   const sc=$('cScore');sc.textContent=G.score;sc.className='v '+(G.score<500?'bad':G.score<900?'warn':'good');
   const cf=$('cFifth');cf.textContent=s.coupled?'Locked':'Open';cf.className='v '+(s.coupled?'good':'warn');
+  const cc=$('cCab');cc.textContent=G.total?'Totaled':Math.round(G.cab)+'%';cc.className='v '+(G.cab<35?'bad':G.cab<75?'warn':'good');
+  const ct=$('cTrl');ct.textContent=Math.round(G.trl)+'%';ct.className='v '+(G.trl<35?'bad':G.trl<75?'warn':'good');
+  const yc=dstore().cost,cy=$('cYard');cy.textContent=money(yc);cy.className='v '+(yc>0?'bad':'good');
   if(MAP.goal==='docks'){$('cGoalK').textContent='Door';$('cDoor').textContent=G.target?String(G.target.n):'None';}
   else{$('cGoalK').textContent='To pad';const dx=clamp(s.x,PAD.x0,PAD.x1)-s.x,dy=clamp(s.y,PAD.y0,PAD.y1)-s.y;$('cDoor').textContent=G.done?'Done':Math.round(Math.hypot(dx,dy))+' ft';}
   $('hE').classList.toggle('on',G.lineE);$('hS').classList.toggle('on',G.lineS);
@@ -1222,7 +1401,8 @@ function hud(dt){
   // RED PHONE: ticker hints when no event message is showing
   if(now()>G.msgUntil){
     let h;
-    if(!s.coupled){const[hx,hy]=hitchOf(s);h=Math.hypot(hx-s.kx,hy-s.ky)<40?'Shift to R. It creeps on its own. Brake to hold':'Find the trailer and back under it';}
+    if(G.total)h='Totaled. Rig menu has Reset truck and Dispatch';
+    else if(!s.coupled){const[hx,hy]=hitchOf(s);h=Math.hypot(hx-s.kx,hy-s.ky)<40?'Shift to R. It creeps on its own. Brake to hold':'Find the trailer and back under it';}
     else if(!G.lineE||!G.lineS)h=(!G.lineE&&!G.lineS)?'Tap the red and blue lines, top left':(!G.lineE?'Red line still off':'Blue line still off');
     else if(G.target)h='Back into door '+G.target.n+'. Pull-ups '+G.pullups;
     else if(PAD&&!G.done)h=U[0].type==='blade'?'Get the blade to the pad. Rear steer is bottom right':'Deliver to the turbine pad, top left of the map';
@@ -1262,11 +1442,13 @@ function setupInput(){
   const setSnd=v=>{sndOn=v;try{localStorage.setItem('tbs-snd',v?'1':'0');}catch(e){}$('bSnd').classList.toggle('on',v);$('bMute').textContent=v?'Sound on':'Sound off';if(v)ac();};
   $('bSnd').addEventListener('click',()=>setSnd(!sndOn));$('bMute').addEventListener('click',()=>setSnd(!sndOn));setSnd(sndOn);
   $('bRig').addEventListener('click',openRig);$('bClose').addEventListener('click',()=>$('rig').classList.remove('on'));
-  $('bResetTruck').addEventListener('click',()=>{startPose();$('rig').classList.remove('on');msg('Reset. Trailer is back on its legs',3);});
+  $('bResetTruck').addEventListener('click',()=>{startPose();$('card').classList.remove('on');$('rig').classList.remove('on');msg('Reset. Trailer is back on its legs',3);});
   $('bResetCones').addEventListener('click',()=>{resetCones();msg('Cones are back up');});
   $('bDispatch').addEventListener('click',()=>{$('rig').classList.remove('on');openDispatch();});
   $('bRestart').addEventListener('click',()=>location.reload());
   $('bCenter').addEventListener('click',()=>{G.centering=true;$('rig').classList.remove('on');});
+  $('bRebuild').addEventListener('click',()=>{delete DMG[builtMap];saveDmg();chunks=[];$('rig').classList.remove('on');msg('Crews rebuilt everything. Good as new',3);});
+  addEventListener('pagehide',saveDmg);
   $('cAgain').addEventListener('click',()=>{$('card').classList.remove('on');setupRun();});
   $('cDisp').addEventListener('click',()=>{$('card').classList.remove('on');openDispatch();});
   $('rLoad').addEventListener('input',e=>{G.load=+e.target.value;applyLoad();rigText();});
@@ -1323,16 +1505,16 @@ function openDispatch(){
   running=false;$('game').classList.remove('on');$('disp').classList.add('on');renderDispatch();
 }
 function renderDispatch(){
-  const mk=(id,obj,kind,sel,okFn,bestFn)=>{const el=$(id);el.innerHTML='';
+  const mk=(id,obj,kind,sel,okFn,bestFn,bcls)=>{const el=$(id);el.innerHTML='';
     for(const k in obj){const o=obj[k],b=document.createElement('button'),ok=okFn?okFn(k):true;
       b.className='opt'+(k===sel?' sel':'')+(ok?'':' off');
       const best=bestFn?bestFn(k):'';
-      b.innerHTML=swatch(kind,k)+'<div class="on"></div><div class="od"></div>'+(best?'<div class="ob"></div>':'');
+      b.innerHTML=swatch(kind,k)+'<div class="on"></div><div class="od"></div>'+(best?'<div class="ob'+(bcls?' '+bcls:'')+'"></div>':'');
       b.children[1].textContent=o.name;b.children[2].textContent=ok?o.desc:'Haul route only. Tap to switch';if(best)b.children[3].textContent=best;
       b.onclick=()=>{pick(kind,k);};el.appendChild(b);}};
   mk('oTr',TRACTORS,'tr',G.trk);
   mk('oCfg',CFGS,'cfg',G.cfg,k=>CFGS[k].maps.includes(G.map),k=>{const v=BEST[G.map+'|'+k+'|'+(G.map==='yard'?'dock':G.trk)];return v!=null?'Best '+v:'';});
-  mk('oMap',MAPS,'map',G.map);
+  mk('oMap',MAPS,'map',G.map,null,k=>{const d=DMG[k];return d&&d.cost?'Damage '+money(d.cost):'';},'red');
 }
 function pick(kind,k){
   if(kind==='tr')G.trk=k;
@@ -1354,7 +1536,7 @@ function setupRun(){
   if(builtMap!==G.map){loadMap(G.map);builtMap=G.map;}else resetCones();
   U=makeUnits(G.cfg);
   G.zoom=G.cfg==='blade'?3:G.cfg==='doubles'||G.cfg==='lowboy'?2:1;
-  G.score=1000;G.runPen=0;G.scoreF=0;G.cool={};G.bias=.35;G.lastDoor=null;G.cardUntil=0;parts=[];
+  G.score=1000;G.runPen=0;G.scoreF=0;G.cool={};G.bias=.35;G.lastDoor=null;G.cardUntil=0;parts=[];chunks=[];
   startPose();resize();setupInput();
   $('rsBox').classList.toggle('on',U.some(u=>u.steer));
   $('card').classList.remove('on');
