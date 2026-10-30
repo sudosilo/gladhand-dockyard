@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>gladhand dockyard v23</title>
+<title>gladhand dockyard v24</title>
 <!--
 RED PHONE: trailer backing sim v5
 RED PHONE: v4 written on the Red phone in chat with Claude Opus 5.5, Oct 11 2026 (single van, dock yard, inspection, air lines, magnetic coupling)
@@ -108,7 +108,11 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 
 #mm{position:absolute;left:8px;top:calc(env(safe-area-inset-top,0px) + 162px);width:104px;height:80px;border:2px solid var(--edge);border-radius:6px;background:var(--panel);pointer-events:none}
 
-#side{position:absolute;right:8px;top:calc(env(safe-area-inset-top,0px) + 162px);display:flex;flex-direction:column;gap:6px}
+#side{position:absolute;right:8px;top:calc(env(safe-area-inset-top,0px) + 162px);bottom:calc(env(safe-area-inset-bottom,0px) + 200px);display:flex;flex-direction:column;gap:6px;overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+#side::-webkit-scrollbar{display:none}#side>.sbtn{flex:0 0 auto}#side.firing{bottom:calc(env(safe-area-inset-bottom,0px) + 262px)}#side.riding .truckOnly{display:none}
+#fire{position:absolute;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 200px);display:none;gap:8px}#fire.on{display:flex}
+#fire button{width:82px;height:52px;border-radius:9px;font-size:15px;font-weight:900;border:2px solid #7a231c;background:#d8463a;color:#fff;box-shadow:0 3px 0 #7a231c;touch-action:none}
+#fire button#bMG{background:#f2c230;border-color:#b58d12;color:#3a2f05;box-shadow:0 3px 0 #b58d12}#fire button:active{transform:translateY(2px);box-shadow:none}
 .sbtn{width:56px;height:34px;background:var(--panel);border:1px solid var(--edge);border-radius:6px;font-size:12px;font-weight:800}
 .sbtn.on{background:#cfe0f4;border-color:var(--blue)}
 
@@ -237,20 +241,19 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 
   <div id="side">
     <button class="sbtn" id="bRig">Rig</button>
-    <button class="sbtn on" id="bGuide">Guide</button>
+    <button class="sbtn on truckOnly" id="bGuide">Guide</button>
     <button class="sbtn" id="bZoom">Zoom</button>
     <button class="sbtn" id="bCam">Auto</button>
-    <button class="sbtn hide" id="bWatch">Watch</button>
-    <button class="sbtn hide" id="bDump">Dump</button>
-    <button class="sbtn hide" id="bDump2">Dump 2</button>
+    <button class="sbtn hide truckOnly" id="bWatch">Watch</button>
+    <button class="sbtn hide truckOnly" id="bDump">Dump</button>
+    <button class="sbtn hide truckOnly" id="bDump2">Dump 2</button>
     <button class="sbtn hide" id="bJobs">Jobs</button>
     <button class="sbtn hide" id="bTow">Hook</button>
-    <button class="sbtn hide" id="bCannon">Cannon</button>
-    <button class="sbtn hide" id="bMG">Gun</button>
     <button class="sbtn" id="bHorn">Horn</button>
     <button class="sbtn on" id="bSnd">Sound</button>
   </div>
 
+  <div id="fire"><button id="bMG">Gun</button><button id="bCannon">Cannon</button></div>
   <div id="ctx"></div>
 
   <div id="rsBox">
@@ -3435,7 +3438,7 @@ function hud(dt){
   document.querySelectorAll('.gear').forEach(b=>b.classList.toggle('on',b.dataset.g===G.gear));
   const deg=s.delta/DEG;$('wheelTxt').textContent=Math.abs(deg)<.5?'Straight':(deg>0?'Right ':'Left ')+Math.abs(deg).toFixed(0)+'°';
   const rsd=s.rs/DEG;$('rsTxt').innerHTML='Rear steer<br>'+(Math.abs(rsd)<.5?'Straight':(rsd>0?'Right ':'Left ')+Math.abs(rsd).toFixed(0)+'°');
-  {const tk=G.alt&&G.alt.type==='tank';$('rsBox').classList.toggle('on',tk||U.some(u=>u.steer));$('bCannon').classList.toggle('hide',!tk);$('bMG').classList.toggle('hide',!tk);
+  {const tk=G.alt&&G.alt.type==='tank';$('rsBox').classList.toggle('on',tk||U.some(u=>u.steer));$('fire').classList.toggle('on',tk);$('side').classList.toggle('firing',tk);$('side').classList.toggle('riding',!!G.alt);
    if(tk){const td=(G.alt.tur||0)/DEG;$('rsTxt').innerHTML='Turret<br>'+(Math.abs(td)<.5?'Forward':(td>0?'Right ':'Left ')+Math.abs(td).toFixed(0)+'°');$('bCannon').textContent=G.alt.cd>0?'Loading':'Cannon';}}
   // RED PHONE: context buttons
   const want=[];if(canPullPin())want.push('pin');if(JR)want.push(JR);
@@ -3670,7 +3673,7 @@ function setupRun(){
   $('rsBox').classList.toggle('on',U.some(u=>u.steer));
   $('card').classList.remove('on');
   running=true;last=0;
-  msg(MAP.proc?TRK.name+' and '+CFGS[G.cfg].name.toLowerCase()+' on the shoulder. Shift to D and merge into traffic':TRK.name+' and '+CFGS[G.cfg].name.toLowerCase()+'. Back under the trailer. Shift to R',4);
+  if(!G.alt)msg(MAP.proc?TRK.name+' and '+CFGS[G.cfg].name.toLowerCase()+' on the shoulder. Shift to D and merge into traffic':TRK.name+' and '+CFGS[G.cfg].name.toLowerCase()+'. Back under the trailer. Shift to R',4);
 }
 function frame(ts){
   const dt=Math.min(.05,last?(ts-last)/1000:.016);last=ts;
