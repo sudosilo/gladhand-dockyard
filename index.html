@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>gladhand dockyard v28</title>
+<title>gladhand dockyard v29</title>
 <!--
 RED PHONE: trailer backing sim v5
 RED PHONE: v4 written on the Red phone in chat with Claude Opus 5.5, Oct 11 2026 (single van, dock yard, inspection, air lines, magnetic coupling)
@@ -100,15 +100,17 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 #chips{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;min-width:0}
 .chip{background:var(--panel);border:1px solid var(--edge);border-radius:6px;padding:3px 3px 2px;text-align:center;min-width:0}
 .chip .k{display:block;font-size:10px;color:var(--ink2);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip.rdc{grid-column:1/-1;display:flex;align-items:center;gap:6px;padding:2px 6px}.chip.rdc .k{flex:1;text-align:left;font-size:11px}.chip.rdc .v{font-size:12px}.chip.rdc .rdb{color:#2a62b0}
+#dBoard{display:grid;gap:4px}.dbRow{display:flex;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--edge);border-radius:7px;padding:6px 9px;font-size:13px}.dbN{font-weight:800;flex:1}.dbM{color:var(--ink2);font-size:12px}.dbV{font-weight:800;color:#2a62b0}.dbEmpty{font-size:13px;color:var(--ink2);padding:4px 2px}
 .chip .v{display:block;font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
 .v.good{color:var(--green)}.v.warn{color:var(--amber)}.v.bad{color:var(--red)}
 #speedo{width:84px;height:84px;flex:none}
 
-#ticker{position:absolute;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 126px);width:max-content;max-width:94vw;background:var(--yellow);border:2px solid #b58d12;border-radius:6px;padding:4px 12px;font-size:14px;font-weight:800;text-align:center;pointer-events:none;color:#3a2f05}
+#ticker{position:absolute;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 148px);width:max-content;max-width:94vw;background:var(--yellow);border:2px solid #b58d12;border-radius:6px;padding:4px 12px;font-size:14px;font-weight:800;text-align:center;pointer-events:none;color:#3a2f05}
 
-#mm{position:absolute;left:8px;top:calc(env(safe-area-inset-top,0px) + 162px);width:104px;height:80px;border:2px solid var(--edge);border-radius:6px;background:var(--panel);pointer-events:none}
+#mm{position:absolute;left:8px;top:calc(env(safe-area-inset-top,0px) + 184px);width:104px;height:80px;border:2px solid var(--edge);border-radius:6px;background:var(--panel);pointer-events:none}
 
-#side{position:absolute;right:8px;top:calc(env(safe-area-inset-top,0px) + 162px);bottom:calc(env(safe-area-inset-bottom,0px) + 200px);display:flex;flex-direction:column;gap:6px;overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+#side{position:absolute;right:8px;top:calc(env(safe-area-inset-top,0px) + 184px);bottom:calc(env(safe-area-inset-bottom,0px) + 200px);display:flex;flex-direction:column;gap:6px;overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
 #side::-webkit-scrollbar{display:none}#side>.sbtn{flex:0 0 auto}#side.firing{bottom:calc(env(safe-area-inset-bottom,0px) + 262px)}#side.riding .truckOnly{display:none}
 #fire{position:absolute;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 200px);display:none;gap:8px}#fire.on{display:flex}
 #fire button{width:82px;height:52px;border-radius:9px;font-size:15px;font-weight:900;border:2px solid #7a231c;background:#d8463a;color:#fff;box-shadow:0 3px 0 #7a231c;touch-action:none}
@@ -208,6 +210,7 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
     <div class="dh">Load</div><div class="opts" id="oCfg"></div>
     <div class="dh">Where</div><div class="opts" id="oMap"></div>
     <div id="lenWrap"><div class="dh">Run length</div><div class="opts" id="oLen"></div></div>
+    <div class="dh">Damage records</div><div id="dBoard"></div>
     <button id="rollOut">Roll out</button>
   </div>
 </div>
@@ -232,6 +235,7 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
       <div class="chip"><span class="k">Cab</span><span class="v" id="cCab">100%</span></div>
       <div class="chip"><span class="k">Trailer</span><span class="v" id="cTrl">100%</span></div>
       <div class="chip"><span class="k">Damage</span><span class="v" id="cYard">$0</span></div>
+      <div class="chip rdc"><span class="k" id="rdK">Run damage</span><span class="v" id="rdV">$0</span><span class="v rdb" id="rdB">Best $0</span></div>
     </div>
     <canvas id="speedo"></canvas>
   </div>
@@ -742,6 +746,7 @@ function chain(s){
   return out;
 }
 function startPose(){
+  drecFinish();G.rdmg={};G.rdNew={};G.rdStart={};
   const sp=MAP.spawn,h=sp.h,s=G.s;
   s.th=h;s.v=0;s.delta=0;s.coupled=false;s.rs=0;
   s.kx=sp.kx;s.ky=sp.ky;s.ph=U.map(()=>h);s.sm=U.map(()=>1);
@@ -871,6 +876,50 @@ function penalize(key,pts,text,cd){const n=now();if(G.cool[key]&&n<G.cool[key])r
 function drain(pts){G.scoreF+=pts;if(G.scoreF>=1){const k=Math.floor(G.scoreF);G.scoreF-=k;G.score-=k;G.runPen+=k;}}
 let BEST={};try{BEST=JSON.parse(localStorage.getItem('tbs-best')||'{}');}catch(e){BEST={};}
 function saveBest(key,val){if(!(BEST[key]>=val)){BEST[key]=val;try{localStorage.setItem('tbs-best',JSON.stringify(BEST));}catch(e){}return true;}return false;}
+// =====================================================================
+// BLUE PHONE: damage records. every dollar of damage in a run is scored to the vehicle you are driving when it happens.
+// BLUE PHONE: each tractor and each ride keeps its own best run, overall and per map. the tank does not score.
+// BLUE PHONE: finished runs queue up in a list shaped for the score backend to pick up later
+// =====================================================================
+const DREC_KEY='tbs-dmgrec',DRUN_KEY='tbs-dmgruns',DREC_VER=1;
+let DREC={ver:DREC_VER,veh:{}};try{const r=JSON.parse(localStorage.getItem(DREC_KEY)||'null');if(r&&r.veh)DREC=r;}catch(e){}
+let DRUNS=[];try{DRUNS=JSON.parse(localStorage.getItem(DRUN_KEY)||'[]')||[];}catch(e){DRUNS=[];}
+let drecSaveT=0,drecDirty=false;
+function vehKey(){if(G.alt){const t=G.alt.type;return t==='tank'?null:t;}return G.trk||null;}
+function vehName(k){if(!k)return'';if(TRACTORS[k])return TRACTORS[k].name;if(RIDES[k])return RIDES[k].name;const v=VT[k];return v?v.label.charAt(0).toUpperCase()+v.label.slice(1):k;}
+function drecSave(force){if(!drecDirty&&!force)return;const t=now();if(!force&&t-drecSaveT<2)return;drecSaveT=t;drecDirty=false;
+  try{localStorage.setItem(DREC_KEY,JSON.stringify(DREC));localStorage.setItem(DRUN_KEY,JSON.stringify(DRUNS));}catch(e){}}
+function drecBest(k,map){const r=DREC.veh[k];if(!r)return 0;return map?((r.maps||{})[map]||0):(r.best||0);}
+// BLUE PHONE: every damage cost in the game passes through here. returns the amount so it drops into the old yard cost sums unchanged
+function rd(v){v=Math.round(v||0);if(!(v>0)||!G.rdmg)return v;const k=vehKey();if(!k)return v;
+  const cur=(G.rdmg[k]=(G.rdmg[k]||0)+v),map=G.map,r=DREC.veh[k]||(DREC.veh[k]={best:0,maps:{},runs:0,total:0});r.maps=r.maps||{};
+  r.total=(r.total||0)+v;
+  if(G.rdStart[k]==null)G.rdStart[k]=(r.best||0)-0;
+  if(cur>(r.best||0)){const had=G.rdStart[k];r.best=cur;r.map=map;r.t=Date.now();
+    if(had>0&&!G.rdNew[k]){G.rdNew[k]=1;setTimeout(()=>{pop('Record','good');msg('New '+vehName(k).toLowerCase()+' damage record. Keep breaking stuff',3);},50);}}
+  if(cur>(r.maps[map]||0))r.maps[map]=cur;
+  drecDirty=true;drecSave(false);return v;}
+// BLUE PHONE: called at the start of every run and when the page closes. banks the run into the backend queue
+function drecFinish(){if(!G.rdmg)return;const out=[];
+  for(const k in G.rdmg){const d=G.rdmg[k];if(!(d>0))continue;const r=DREC.veh[k];if(r)r.runs=(r.runs||0)+1;
+    const rec={v:DREC_VER,run:G.runId,veh:k,name:vehName(k),dmg:d,map:G.map,cfg:G.cfg,trk:G.trk,miles:MAP&&MAP.proc&&HW?Math.round(HW.miles*10)/10:0,
+      best:!!(r&&r.best===d),t:Date.now(),sent:false};out.push(rec);DRUNS.push(rec);}
+  if(DRUNS.length>200)DRUNS.splice(0,DRUNS.length-200);
+  G.rdmg={};G.rdNew={};G.rdStart={};drecDirty=true;drecSave(true);
+  // BLUE PHONE: backend hook. when the score server exists it sets window.gdScoreHook and gets every finished run here
+  if(out.length&&typeof window.gdScoreHook==='function'){try{window.gdScoreHook(out);}catch(e){}}
+  return out;}
+function drecRun(){const k=vehKey();return{k,cur:k&&G.rdmg?G.rdmg[k]||0:0,best:k?drecBest(k):0,all:G.rdmg?Object.values(G.rdmg).reduce((a,b)=>a+b,0):0};}
+// BLUE PHONE: read only view for the backend and the board. runs not yet sent can be marked sent by the uploader
+window.gdScores={records:()=>JSON.parse(JSON.stringify(DREC)),pending:()=>DRUNS.filter(r=>!r.sent),
+  markSent:runs=>{const ids=new Set(runs.map(r=>r.run+'|'+r.veh));for(const r of DRUNS)if(ids.has(r.run+'|'+r.veh))r.sent=true;drecDirty=true;drecSave(true);},finish:drecFinish};
+addEventListener('pagehide',()=>{if(G.rdmg&&Object.keys(G.rdmg).length)drecFinish();else drecSave(true);});
+addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')drecSave(true);});
+function drecBoard(){const ks=Object.keys(DREC.veh).filter(k=>DREC.veh[k].best>0).sort((a,b)=>DREC.veh[b].best-DREC.veh[a].best);
+  const el=$('dBoard');if(!el)return;el.innerHTML='';if(!ks.length){el.innerHTML='<div class="dbEmpty">No wrecking on record yet. Every tractor and ride except the tank keeps its own best damage run.</div>';return;}
+  for(const k of ks){const r=DREC.veh[k],row=document.createElement('div');row.className='dbRow';
+    row.innerHTML='<span class="dbN"></span><span class="dbM"></span><span class="dbV"></span>';
+    row.children[0].textContent=vehName(k);row.children[1].textContent=r.map&&MAPS[r.map]?MAPS[r.map].name:'';row.children[2].textContent=money(r.best);el.appendChild(row);}}
 
 // =====================================================================
 // RED PHONE: gears, air lines, coupling, pin
@@ -1034,7 +1083,7 @@ function crash(hit,mph,extra){
     if(nd>=o.hp){broke=true;if(o.type==='pump'||o.type==='stank')setTimeout(()=>explode(o.cx,o.cy,o.type==='stank'?2.6:1,o),120);if(st.obs[o.id].fa==null){const vh=G.s.th+(G.s.v<0?Math.PI:0)+(Math.random()-.5)*.5;st.obs[o.id].fa=Math.round(normA(vh)*100)/100;}
       if(o.type==='tpole'&&!old)setTimeout(()=>msg('Pole down. The lights just went out at the nearest intersection',3),700);if(o.type==='hydrant')setTimeout(()=>msg('Hydrant sheared off. Water everywhere',2.5),700);}}
   if(prop&&!broke&&BREACH[o.type]&&mph>=3&&E>=BREACH[o.type]&&!MAP.proc)broke=breach(o,b,E);
-  if(prop&&!MAP.proc){addMark(cx,cy,E,o);st.cost+=Math.round((BASE$[o.type]||500)*(.4+E/20));}
+  if(prop&&!MAP.proc){addMark(cx,cy,E,o);st.cost+=rd((BASE$[o.type]||500)*(.4+E/20));}
   const solidK=broke?(BREACH[o.type]?.45:.7):(o.type==='building'||o.type==='tower'||o.type==='berm'?1.3:o.type==='sign'?.3:1);
   const td=(hit.E!=null?hit.E*(.6+.4*Math.min(2,mf))/Math.max(.3,mf):100*Math.pow(mph/20,2)*(.6+.4*Math.min(2,mf)))*solidK*(extra?.5:1);
   // BLUE PHONE: both bodies give. the truck crushes more against hard things, the thing it hit crushes by how soft it is
@@ -1076,7 +1125,7 @@ function totaled(){
   const lines=['The insurance adjuster just sighed','Yard crew is bringing the loader','Dispatch wants a word','The goat horn still works'];
   const line=lines[Math.floor(Math.random()*lines.length)],run=G.runId;
   // BLUE PHONE: card waits a moment so the wreck can be seen first, and sits low so it does not cover it
-  setTimeout(()=>{if(G.total&&G.runId===run)showCard('X','Totaled. '+line,'Penalties '+G.runPen+'. Score '+G.score+(MAP.proc?'. '+HW.miles.toFixed(1)+' miles':'')+'. The wreck stays put until the tow truck clears it.',true,true);},2200);
+  setTimeout(()=>{if(G.total&&G.runId===run)showCard('X','Totaled. '+line,'Penalties '+G.runPen+'. Score '+G.score+'. '+vehName(G.trk)+' did '+money((G.rdmg||{})[G.trk]||0)+' in damage'+(MAP.proc?'. '+HW.miles.toFixed(1)+' miles':'')+'. The wreck stays put until the tow truck clears it.',true,true);},2200);
   msg('Cab destroyed. Engine is dead',5);
 }
 function damageFx(dt){
@@ -1230,8 +1279,8 @@ function knockUpdate(n,dt){
     if(n.kind==='hw'&&!n.dead&&!n.parked){n.lane=hwLaneOf(n.dir,n.x);n.lc={fx:n.x,tx:hwLaneX(n.dir,n.lane),t:0,dur:2.5,to:n.lane};n.th=n.dir<0?-Math.PI/2:Math.PI/2;}}
 }
 function npcOb(n){return n.ob||(n.ob={id:'n'+n.id,type:'vehicle',label:n.label||VT[n.type].label,tall:false,mat:[n.c1||PAL.trl,PAL.glass,PAL.tire,PAL.bumper]});}
-function npcDamage(n,cx,cy,En,nb){
-  if(En<=0)return;n.hp-=En;const dd=.3+Math.sqrt(En)*.45;
+function npcDamage(n,cx,cy,En,nb,pair){
+  if(En<=0)return;const credit=!pair||(pair.some(q=>q===G.alt||(q.blameT&&now()-q.blameT<8)));if(credit&&n!==G.alt){n.blameT=now();}n.hp-=En;const dd=.3+Math.sqrt(En)*.45;
   const cr=(c,ox,oy,ang,f0,f1,hw)=>{const k=Math.cos(ang),s=Math.sin(ang),dx=cx-ox,dy=cy-oy;applyCrush(c,f0,f1,hw,clamp(dx*k+dy*s,f0,f1),clamp(-dx*s+dy*k,-hw,hw),dd,(f1-f0)*.45,hw*.9);};
   if(n.kind==='rig'){if(nb.part===1){n.crU=n.crU||newCrush();cr(n.crU,n.x+Math.cos(n.th)*n.T.a,n.y+Math.sin(n.th)*n.T.a,n.ph,n.u.kp-n.u.len,n.u.kp,n.u.w/2);}
     else{n.cr=n.cr||newCrush();cr(n.cr,n.x,n.y,n.th,n.T.cab,n.T.bumper,n.T.half);}}
@@ -1239,7 +1288,7 @@ function npcDamage(n,cx,cy,En,nb){
   else{const T=VT[n.type];if(nb.part===1&&T.trl){n.crT=n.crT||newCrush();cr(n.crT,n.x-Math.cos(n.th)*4,n.y-Math.sin(n.th)*4,n.ph,-T.trl+2,2,4.25);}
     else{n.cr=n.cr||newCrush();cr(n.cr,n.x,n.y,n.th,-T.len/2,T.len/2,T.wid/2);}}
   if(n.hp<=0&&!n.dead){n.dead=true;n.deadT=now();n.siren=false;if(nDist(n)<400)msg('The '+(n.label||VT[n.type].label)+' is wrecked',2.5);}
-  if(!MAP.proc){dstore().cost+=Math.round(En*120);G.dirty=true;}
+  const dv=credit&&n!==G.alt?rd(En*120):Math.round(En*120);if(!MAP.proc){dstore().cost+=dv;G.dirty=true;}
 }
 // BLUE PHONE: the player rig hitting any moving vehicle. momentum is shared by weight, both bodies crush
 function npcHit(n,pb,nb){
@@ -1591,7 +1640,7 @@ function hwPairs(){
     const ma=VT[a.type].mass,mb=VT[b.type].mass,jj=1.1*cl/(1/ma+1/mb);
     nImpulse(a,-nx*jj/ma,-ny*jj/ma,true);nImpulse(b,nx*jj/mb,ny*jj/mb,true);
     const cm=cl*MPH,[cx,cy]=closestOBB(hit[1],hit[0].cx,hit[0].cy);
-    npcDamage(a,cx,cy,cm*cm/4*(mb/(ma+mb))*2,hit[0]);npcDamage(b,cx,cy,cm*cm/4*(ma/(ma+mb))*2,hit[1]);
+    npcDamage(a,cx,cy,cm*cm/4*(mb/(ma+mb))*2,hit[0],[a,b]);npcDamage(b,cx,cy,cm*cm/4*(ma/(ma+mb))*2,hit[1],[a,b]);
     if(cm>5){const d=Math.hypot(cx-G.s.x,cy-G.s.y);if(d<700)crashSnd(clamp(cm/30,.1,.7)*(1-d/700));spawnChunks(cx,cy,nx,ny,8,[a.c1,b.c1,PAL.glass],1);}}
 }
 function hwAddOb(x,y,w,h,type,label,sub,mat){addOb(x-w/2,y-h/2,w,h,type,label,false);const o=OBST[OBST.length-1];o.sub=sub;o.mat=mat;OBI[o.id]=o;return o;}
@@ -2220,7 +2269,7 @@ function breach(o,b,E,dirA){
     h.t=T;h.d=Math.round(E*10)/10;L.push(h);ret=h;if(L.length>16)L.shift();
     if(nDist({x:px,y:py})<200)setTimeout(()=>msg('Busted through the '+o.label,2.2),300);}
   for(const h of L)for(const k of['x0','x1','y0','y1'])h[k]=Math.round(h[k]*10)/10;
-  st.cost+=Math.round((BASE$[o.type]||800)*(.5+E/15));G.dirty=true;
+  st.cost+=rd((BASE$[o.type]||800)*(.5+E/15));G.dirty=true;
   return ret||true;
 }
 function drawHoles(){const st=dstore();if(!st.holes)return;const T=tnow(),X0=G.camX-300,X1=G.camX+300,Y0=G.camY-460,Y1=G.camY+460;
@@ -2327,7 +2376,7 @@ function damageOb(o,E,cx,cy,fa){
   const st=dstore(),T=tnow();let broke=false;
   if(o.hp<9999){const nd=obsDmg(o)+E,old=st.obs[o.id];st.obs[o.id]={d:Math.round(nd*10)/10,t:T,fa:old&&old.fa!=null?old.fa:Math.round(normA(fa)*100)/100};
     if(nd>=o.hp){broke=true;if(o.type==='pump'||o.type==='stank')setTimeout(()=>explode(o.cx,o.cy,o.type==='stank'?2.6:1,o),120);}}
-  if(o.type!=='berm'){addMark(cx,cy,E,o);st.cost+=Math.round((BASE$[o.type]||500)*(.4+E/20));}
+  if(o.type!=='berm'){addMark(cx,cy,E,o);st.cost+=rd((BASE$[o.type]||500)*(.4+E/20));}
   G.dirty=true;return broke;
 }
 function altUpdate(dt){
@@ -2421,7 +2470,7 @@ function explode(x,y,power,src){
       st2.wallHits.push({x:Math.round(qx*10)/10,y:Math.round(qy*10)/10,a:Math.round(a*100)/100,r:Math.round((4+power*3)*10)/10,t:Math.round(tnow())});addMark(qx,qy,30*power,o);}
     if(st2.wallHits.length>300)st2.wallHits.splice(0,st2.wallHits.length-300);}
   for(const o of OBST){if(o.hp>=9999||isBroken(o)||o.type==='pump')continue;const d=Math.hypot(o.cx-x,o.cy-y);if(d<30)damageOb(o,(1-d/30)*40*power,o.cx,o.cy,Math.atan2(o.cy-y,o.cx-x));}
-  st.cost+=Math.round(60000*power);G.dirty=true;
+  st.cost+=rd(60000*power);G.dirty=true;
   if(d0<500)setTimeout(()=>msg(src&&src.label==='fuel pump'?'The gas station went up':'Boom',3),200);
 }
 function fireFx(){const st=dstore();if(!st.fires)return;const T=tnow();
@@ -2502,7 +2551,7 @@ function dumpTick(dt){
     sp.r=Math.min(26,sp.r+dt*5);sp.t=Math.round(tnow());G.dirty=true;
     if(u.load<=0){G.dumpT=0;msg('Tank is dry. That puddle is very flammable',3.5);}}
 }
-function addPile(x,y,r){const st=dstore();st.piles=st.piles||[];const p={x:Math.round(x),y:Math.round(y),r,t:Math.round(tnow())};st.piles.push(p);if(st.piles.length>40)st.piles.shift();pileOb(p);st.cost+=1500;G.dirty=true;}
+function addPile(x,y,r){const st=dstore();st.piles=st.piles||[];const p={x:Math.round(x),y:Math.round(y),r,t:Math.round(tnow())};st.piles.push(p);if(st.piles.length>40)st.piles.shift();pileOb(p);st.cost+=rd(1500);G.dirty=true;}
 function pileOb(p){addOb(p.x-p.r*.75,p.y-p.r*.75,p.r*1.5,p.r*1.5,'pile','dirt pile',false);const o=OBST[OBST.length-1];o.pile=p;OBI[o.id]=o;}
 function loadPiles(){const st=DMG[G.map];if(!st||!st.piles)return;const T=tnow();st.piles=st.piles.filter(p=>T-p.t<5400);for(const p of st.piles)pileOb(p);}
 function drawPiles(){for(const o of OBST)if(o.pile&&!isBroken(o)){const p=o.pile;if(Math.abs(p.x-G.camX)>320||Math.abs(p.y-G.camY)>480)continue;
@@ -2575,7 +2624,7 @@ function flowTick(which,dt){
     msg(bed?'Truck bed is empty. Refill at the rock yard':'Pup is empty. Refill at the rock yard',3);tone(220,.3,'sawtooth',.04,140);}
 }
 function addSpread(x,y,a){const st=dstore();st.spread=st.spread||[];st.spread.push({x:Math.round(x*10)/10,y:Math.round(y*10)/10,a:Math.round(a*100)/100,t:Math.round(tnow())});
-  if(st.spread.length>1200)st.spread.splice(0,st.spread.length-1200);st.cost+=15;G.dirty=true;}
+  if(st.spread.length>1200)st.spread.splice(0,st.spread.length-1200);st.cost+=rd(15);G.dirty=true;}
 function drawSpread(){const st=dstore();if(!st.spread)return;const T=tnow(),X=G.camX,Y=G.camY;
   for(const g of st.spread){if(Math.abs(g.x-X)>300||Math.abs(g.y-Y)>460||T-g.t>5400)continue;const h=hsh(Math.round(g.x*7),Math.round(g.y*7));
     fillOBB(g.x,g.y,g.a,1,4.4,PAL.soft2);fillOBB(g.x,g.y,g.a,.9,3.6,PAL.gravel);fillOBB(g.x+((h%5)-2)*.6,g.y+(((h>>3)%5)-2)*.6,g.a,.5,.5,PAL.gravel2);fillOBB(g.x-((h%3)-1)*1.2,g.y+((h%7)-3)*.5,0,.4,.4,PAL.soft2);}}
@@ -3519,6 +3568,7 @@ function hud(dt){
   const cf=$('cFifth');cf.textContent=s.coupled?'Locked':'Open';cf.className='v '+(s.coupled?'good':'warn');
   const cc=$('cCab');cc.textContent=G.total?'Totaled':Math.round(G.cab)+'%';cc.className='v '+(G.cab<35?'bad':G.cab<75?'warn':'good');
   const ct=$('cTrl');ct.textContent=Math.round(G.trl)+'%';ct.className='v '+(G.trl<35?'bad':G.trl<75?'warn':'good');
+  {const R=drecRun(),rk=$('rdK'),rv=$('rdV'),rb=$('rdB');if(R.k){rk.textContent=vehName(R.k)+' run';rv.textContent=money(R.cur);rv.className='v '+(R.cur>0&&R.cur>=R.best?'good':R.cur>0?'bad':'');rb.textContent='Best '+money(R.best);}else{rk.textContent='Tank damage does not score';rv.textContent='';rb.textContent='';}}
   const yc=dstore().cost,cy=$('cYard');cy.textContent=money(yc);cy.className='v '+(yc>0?'bad':'good');
   if(MAP.goal==='docks'){$('cGoalK').textContent='Door';$('cDoor').textContent=G.target?String(G.target.n):'None';}
   else if(MAP.goal==='miles'){$('cGoalK').textContent='Miles';$('cDoor').textContent=HW.miles.toFixed(1)+(G.hwLenMi?' of '+G.hwLenMi:'');}
@@ -3727,8 +3777,9 @@ function renderDispatch(){
       b.innerHTML=swatch(kind,k)+'<div class="on"></div><div class="od"></div>'+(best?'<div class="ob'+(bcls?' '+bcls:'')+'"></div>':'');
       b.children[1].textContent=o.name;b.children[2].textContent=ok?o.desc:'Haul route only. Tap to switch';if(best)b.children[3].textContent=best;
       b.onclick=()=>{pick(kind,k);};el.appendChild(b);}};
-  mk('oRide',RIDES,'ride',G.ride||'semi');
-  mk('oTr',TRACTORS,'tr',G.trk);
+  mk('oRide',RIDES,'ride',G.ride||'semi',null,k=>{if(k==='tank'||k==='semi')return'';const b=drecBest(k);return b?'Wrecked '+money(b):'';},'red');
+  mk('oTr',TRACTORS,'tr',G.trk,null,k=>{const b=drecBest(k);return b?'Wrecked '+money(b):'';},'red');
+  drecBoard();
   mk('oCfg',CFGS,'cfg',G.cfg,k=>CFGS[k].maps.includes(G.map),k=>{const v=BEST[G.map+'|'+k+'|'+(G.map==='yard'?'dock':G.trk)];return v!=null?'Best '+v:'';});
   mk('oMap',MAPS,'map',G.map,null,k=>{const d=DMG[k];return k!=='highway'&&d&&d.cost?'Damage '+money(d.cost):'';},'red');
   $('lenWrap').classList.toggle('hide',G.map!=='highway');if(G.map==='highway')mk('oLen',LENS,'len',G.hwLen,null,k=>{const v=BEST['highway|'+k+'|'+G.cfg+'|'+G.trk];return v!=null?'Best '+v:'';});
