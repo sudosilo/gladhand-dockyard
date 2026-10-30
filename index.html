@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>gladhand dockyard v16</title>
+<title>gladhand dockyard v17</title>
 <!--
 RED PHONE: trailer backing sim v5
 RED PHONE: v4 written on the Red phone in chat with Claude Opus 5.5, Oct 11 2026 (single van, dock yard, inspection, air lines, magnetic coupling)
@@ -238,6 +238,7 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
     <button class="sbtn" id="bCam">Auto</button>
     <button class="sbtn hide" id="bWatch">Watch</button>
     <button class="sbtn hide" id="bDump">Dump</button>
+    <button class="sbtn hide" id="bDump2">Dump 2</button>
     <button class="sbtn" id="bHorn">Horn</button>
     <button class="sbtn on" id="bSnd">Sound</button>
   </div>
@@ -919,7 +920,7 @@ function isBroken(o){const r=dstore().obs[o.id];if(!r||r.d<o.hp)return false;ret
 function pruneDmg(){const T=tnow();for(const k in DMG){const st=DMG[k];if(!st)continue;
   for(const id in (st.obs||{})){const r=st.obs[id];if(T-r.t>=repairSecs(r.d))delete st.obs[id];}
   for(const id in (st.crush||{})){const r=st.crush[id];if(T-r.t>=repairSecs(r.d))delete st.crush[id];}
-  st.marks=(st.marks||[]).filter(m=>T-m.t<repairSecs(m.s));st.debris=(st.debris||[]).filter(d=>T-d.t<DEBRIS_SECS);st.wrecks=(st.wrecks||[]).filter(w=>T-w.t<WRECK_SECS);if(st.fires)st.fires=st.fires.filter(f=>T-f.t<1800);if(st.spills)st.spills=st.spills.filter(q=>T-q.t<5400);}}
+  st.marks=(st.marks||[]).filter(m=>T-m.t<repairSecs(m.s));st.debris=(st.debris||[]).filter(d=>T-d.t<DEBRIS_SECS);st.wrecks=(st.wrecks||[]).filter(w=>T-w.t<WRECK_SECS);if(st.fires)st.fires=st.fires.filter(f=>T-f.t<1800);if(st.spills)st.spills=st.spills.filter(q=>T-q.t<5400);if(st.spread)st.spread=st.spread.filter(g=>T-g.t<5400);}}
 function money(n){n=Math.round(n||0);return n>=1e6?'$'+(n/1e6).toFixed(1)+'M':n>=1e4?'$'+Math.round(n/1e3)+'k':'$'+n.toLocaleString();}
 function addBerms(){const B=30;
   // BLUE PHONE: dirt berm past the fence line so a truck that busts out of the map stops in the desert
@@ -2441,18 +2442,15 @@ function heliIdle(n,dt){if((n.z||0)>0){n.z=Math.max(0,n.z-10*dt);n.rot=(n.rot||0
 // =====================================================================
 function workUnit(){const u=U[0];return u&&(u.type==='tank'||u.type==='dump'||u.type==='dpup')?u:null;}
 function dumpPress(){
-  const u=workUnit(),s=G.s;if(G.alt)return;if(TRK.bed&&(!s.coupled||!u)){bedPress();return;}if(!u)return;
+  const u=workUnit(),s=G.s;if(G.alt||!u)return;
   if(!s.coupled){msg('Hook up to the trailer first',2);return;}
-  if(Math.abs(s.v)*MPH>1){msg('Stop first',2);return;}
   if(u.load<=0){msg(u.type==='tank'?'Tank is empty. Refill at the fuel terminal':'Bed is empty. Refill at the rock yard',3);return;}
-  if(G.dumpT>0)return;G.dumpT=.001;msg(u.type==='tank'?'Valve open. Fuel is pouring out':'Raising the bed',2.5);tone(140,.5,'sawtooth',.05,90);
+  if(G.dumpT>0)return;G.dumpT=.001;msg(u.type==='tank'?'Valve open. Fuel is pouring out':'Raising the pup bed. Keep rolling to spread it, stop to pile it',3);tone(140,.5,'sawtooth',.05,90);
 }
 function dumpTick(dt){
   const u=workUnit();if(!u||!G.dumpT)return;const s=G.s;
-  if(Math.abs(s.v)*MPH>2&&u.type!=='tank'){G.dumpT=0;msg('Bed came down. Stop to dump',2);return;}
   G.dumpT+=dt;const c=chain(s)[0],[rx,ry]=rearOf(c),bx=-c.c,by=-c.s;
-  if(u.type!=='tank'){if(G.dumpT>1.6&&G.dumpT<4.2&&parts.length<380)for(let k=0;k<4;k++)parts.push({x:rx+bx*rnd(0,6)+rnd(-3,3),y:ry+by*rnd(0,6)+rnd(-3,3),vx:bx*rnd(4,10)+rnd(-3,3),vy:by*rnd(4,10)+rnd(-3,3),life:rnd(.3,.8),c:[PAL.soft,PAL.soft2,PAL.dirt||PAL.gravel][k%3]});
-    if(G.dumpT>=4.2){addPile(rx+bx*9,ry+by*9,9);u.load=0;G.dumpT=0;msg('Load dumped. Lower the bed and go refill at the rock yard',3.5);}}
+  if(u.type!=='tank'){G.dumpT-=dt;flowTick('trl',dt);return;}
   else{const mx=c.hx+c.c*(-u.d),my=c.hy+c.s*(-u.d);if(parts.length<380)for(let k=0;k<3;k++)parts.push({x:mx+rnd(-3,3),y:my+rnd(-3,3),vx:rnd(-6,6),vy:rnd(-6,6),life:rnd(.3,.7),c:k%2?PAL.wet:PAL.sigY});
     u.load=Math.max(0,u.load-14000*dt);const st=dstore();st.spills=st.spills||[];let sp=st.spills.find(q=>q.run===G.runId&&Math.hypot(q.x-mx,q.y-my)<6&&!q.lit);
     if(!sp){sp={x:Math.round(mx),y:Math.round(my),r:4,t:Math.round(tnow()),run:G.runId};st.spills.push(sp);if(st.spills.length>30)st.spills.shift();}
@@ -2509,12 +2507,33 @@ function carryTick(){for(const n of NPCS){if(!n.onTrl||n===G.alt)continue;const 
   n.x=c.hx+c.c*n.onTrl.f-c.s*n.onTrl.l;n.y=c.hy+c.s*n.onTrl.f+c.c*n.onTrl.l;n.th=c.ph+n.onTrl.dth;n.ph=n.th;n.v=0;n.knock=false;}}
 function drawCarried(){for(const n of NPCS)if(n.onTrl&&n!==G.alt){if(n.type==='heli')drawHeli(n);else drawCar(n);}}
 // BLUE PHONE: the dump truck's own bed
-function bedPress(){const s=G.s;if(Math.abs(s.v)*MPH>1){msg('Stop first',2);return true;}if((G.bedLoad||0)<=0){msg('Bed is empty. Refill at the rock yard',3);return true;}
-  if(G.bedT>0)return true;G.bedT=.001;msg('Raising the bed',2.5);tone(140,.5,'sawtooth',.05,90);return true;}
-function bedTick(dt){if(!G.bedT||!TRK.bed)return;const s=G.s;if(Math.abs(s.v)*MPH>2){G.bedT=0;msg('Bed came down. Stop to dump',2);return;}
-  G.bedT+=dt;const bx=-Math.cos(s.th),by=-Math.sin(s.th),rx=s.x+Math.cos(s.th)*TRK.tail,ry=s.y+Math.sin(s.th)*TRK.tail;
-  if(G.bedT>1.6&&G.bedT<4.2&&parts.length<380)for(let k=0;k<4;k++)parts.push({x:rx+bx*rnd(0,5)+rnd(-3,3),y:ry+by*rnd(0,5)+rnd(-3,3),vx:bx*rnd(4,10)+rnd(-3,3),vy:by*rnd(4,10)+rnd(-3,3),life:rnd(.3,.8),c:k%2?PAL.soft:PAL.soft2});
-  if(G.bedT>=4.2){addPile(rx+bx*8,ry+by*8,8);G.bedLoad=0;G.bedT=0;msg('Bed dumped. Drive off before you bury yourself',3);}}
+function bedPress(){if(G.alt||!TRK.bed)return true;if((G.bedLoad||0)<=0){msg('Bed is empty. Refill at the rock yard',3);return true;}
+  if(G.bedT>0)return true;G.bedT=.001;msg('Raising the truck bed. Keep rolling to spread it, stop to pile it',3);tone(140,.5,'sawtooth',.05,90);return true;}
+function bedTick(dt){if(!G.bedT||!TRK.bed)return;flowTick('bed',dt);}
+// BLUE PHONE: material flow. once the bed is up it pours out over a few seconds. rolling spreads a gravel trail behind you,
+// BLUE PHONE: sitting still builds a pile. a pile that would land on your own rig gets spread flat instead
+function flowTick(which,dt){
+  const s=G.s,bed=which==='bed';let rx,ry,bx,by,load,cap,u=null;
+  if(bed){bx=-Math.cos(s.th);by=-Math.sin(s.th);rx=s.x+Math.cos(s.th)*TRK.tail;ry=s.y+Math.sin(s.th)*TRK.tail;load=G.bedLoad||0;cap=TRK.bed;G.bedT+=dt;}
+  else{u=workUnit();if(!u||!s.coupled){G.dumpT=0;return;}const c=chain(s)[0];[rx,ry]=rearOf(c);bx=-c.c;by=-c.s;load=u.load;cap=u.maxLoad;G.dumpT+=dt;}
+  const T=bed?G.bedT:G.dumpT;if(T<1.5)return;
+  G.pileAcc=G.pileAcc||{};G.sprAcc=G.sprAcc||{};
+  const take=Math.min(load,cap/3.2*dt),mph=Math.abs(s.v)*MPH;load-=take;
+  if(parts.length<380)for(let k=0;k<4;k++)parts.push({x:rx+bx*rnd(0,4)+rnd(-3,3),y:ry+by*rnd(0,4)+rnd(-3,3),vx:bx*rnd(3,8)+rnd(-3,3),vy:by*rnd(3,8)+rnd(-3,3),life:rnd(.25,.6),c:[PAL.gravel,PAL.gravel2,PAL.soft2][k%3]});
+  if(mph>1.5){G.sprAcc[which]=(G.sprAcc[which]||0)+Math.abs(s.v)*dt;while(G.sprAcc[which]>=1.5){G.sprAcc[which]-=1.5;addSpread(rx+bx*1.5,ry+by*1.5,Math.atan2(by,bx));}}
+  else G.pileAcc[which]=(G.pileAcc[which]||0)+take;
+  if(bed)G.bedLoad=load;else u.load=load;
+  if(load<=0){const pa=G.pileAcc[which]||0;G.pileAcc[which]=0;if(bed)G.bedT=0;else G.dumpT=0;
+    if(pa>cap*.12){const r=4+5*Math.min(1,pa/cap),px=rx+bx*(r+1),py=ry+by*(r+1),pb={cx:px,cy:py,ang:0,hl:r*.75,hw:r*.75};
+      const mine=[tractorBoxes(s).full].concat(s.coupled?chain(s).flatMap(c=>unitBoxes(c)):[]).some(q=>obbHit(pb,q));
+      if(mine){for(let k=0;k<8;k++)addSpread(px+rnd(-r,r),py+rnd(-r,r),rnd(0,6.28));}else addPile(px,py,r);}
+    msg(bed?'Truck bed is empty. Refill at the rock yard':'Pup is empty. Refill at the rock yard',3);tone(220,.3,'sawtooth',.04,140);}
+}
+function addSpread(x,y,a){const st=dstore();st.spread=st.spread||[];st.spread.push({x:Math.round(x*10)/10,y:Math.round(y*10)/10,a:Math.round(a*100)/100,t:Math.round(tnow())});
+  if(st.spread.length>1200)st.spread.splice(0,st.spread.length-1200);st.cost+=15;G.dirty=true;}
+function drawSpread(){const st=dstore();if(!st.spread)return;const T=tnow(),X=G.camX,Y=G.camY;
+  for(const g of st.spread){if(Math.abs(g.x-X)>300||Math.abs(g.y-Y)>460||T-g.t>5400)continue;const h=hsh(Math.round(g.x*7),Math.round(g.y*7));
+    fillOBB(g.x,g.y,g.a,1,4.4,PAL.soft2);fillOBB(g.x,g.y,g.a,.9,3.6,PAL.gravel);fillOBB(g.x+((h%5)-2)*.6,g.y+(((h>>3)%5)-2)*.6,g.a,.5,.5,PAL.gravel2);fillOBB(g.x-((h%3)-1)*1.2,g.y+((h%7)-3)*.5,0,.4,.4,PAL.soft2);}}
 function bedLoadTick(dt){const Z=MAP.loadZones;if(!TRK.bed||!Z||G.alt)return;const s=G.s,m=(TRK.tail+TRK.cab)/2,x=s.x+Math.cos(s.th)*m,y=s.y+Math.sin(s.th)*m;
   const z=Z.find(q=>q.kind==='dump'&&x>q.x0&&x<q.x1&&y>q.y0&&y<q.y1);if(!z||(G.bedLoad||0)>=TRK.bed)return;
   if(Math.abs(s.v)*MPH>.5){if(now()>G.msgUntil)msg('Stop in the rock yard to load the bed',1.2);return;}
@@ -2938,7 +2957,7 @@ function render(){
     if(x1>x0)fb.set(world.subarray(wy*WPX+camPX+x0,wy*WPX+camPX+x1),row+x0);
   }}
   if(MAP.proc)drawHwGround();
-  drawScars();drawHoles();drawSpills();drawFires();drawPiles();drawLoadZones();drawPads();drawDebris();drawWrecks();drawTarget();drawCones();drawCrews();if(MAP.proc)drawHwObst();if(MAP.city)cityDrawUnder();drawNpcs();drawPeds();drawWatch();drawGuide();
+  drawScars();drawHoles();drawSpread();drawSpills();drawFires();drawPiles();drawLoadZones();drawPads();drawDebris();drawWrecks();drawTarget();drawCones();drawCrews();if(MAP.proc)drawHwObst();if(MAP.city)cityDrawUnder();drawNpcs();drawPeds();drawWatch();drawGuide();
   drawTractorLower();
   for(let i=ch.length-1;i>=0;i--)drawUnit(ch[i],false);
   drawTractorUpper();
@@ -3090,7 +3109,8 @@ function setupInput(){
   document.querySelectorAll('.gear').forEach(b=>b.addEventListener('click',()=>setGear(b.dataset.g)));
   $('hE').addEventListener('click',()=>toggleLine('E'));$('hS').addEventListener('click',()=>toggleLine('S'));
   $('bGuide').addEventListener('click',()=>{G.guide=!G.guide;$('bGuide').classList.toggle('on',G.guide);});
-  $('bDump').addEventListener('click',dumpPress);
+  $('bDump').addEventListener('click',()=>{if(TRK.bed)bedPress();else dumpPress();});
+  $('bDump2').addEventListener('click',dumpPress);
   $('bWatch').addEventListener('click',()=>{G.watch=!G.watch;$('bWatch').classList.toggle('on',G.watch);if(G.watch&&!NPCS.some(n=>n.kind==='rig'))G.watch=false;});
   $('bZoom').addEventListener('click',()=>{G.zoom=(G.zoom+1)%ZOOMS.length;resize();});
   const CAMS=['auto','cab','rear','whole','driver'],CAML={auto:'Auto',cab:'Cab',rear:'Rear',whole:'Whole',driver:'Driver'};
@@ -3226,7 +3246,8 @@ function setupRun(){
   try{if(!localStorage.getItem('tbs-camtip')){localStorage.setItem('tbs-camtip','1');setTimeout(()=>msg('Drag the map to look around. Pinch to zoom. Double tap to recenter',5),4500);}}catch(e){}
   G.score=1000;G.runPen=0;G.scoreF=0;G.cool={};G.bias=.35;G.lastDoor=null;G.cardUntil=0;parts=[];chunks=[];
   G.alt=null;startPose();resize();setupInput();initWorld();
-  {const wu=workUnit();$('bDump').classList.toggle('hide',!wu&&!TRK.bed);$('bDump').textContent=wu&&wu.type==='tank'?'Spill':'Dump';}
+  {const wu=workUnit(),b1=$('bDump'),b2=$('bDump2');b1.classList.toggle('hide',!wu&&!TRK.bed);b2.classList.toggle('hide',!(TRK.bed&&wu));
+   if(TRK.bed){b1.textContent=wu?'Dump 1':'Dump';if(wu)b2.textContent=wu.type==='tank'?'Spill':'Dump 2';}else b1.textContent=wu&&wu.type==='tank'?'Spill':'Dump';}
   $('rsBox').classList.toggle('on',U.some(u=>u.steer));
   $('card').classList.remove('on');
   running=true;last=0;
