@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>gladhand dockyard v29</title>
+<title>gladhand dockyard v30</title>
 <!--
 RED PHONE: trailer backing sim v5
 RED PHONE: v4 written on the Red phone in chat with Claude Opus 5.5, Oct 11 2026 (single van, dock yard, inspection, air lines, magnetic coupling)
@@ -2830,9 +2830,9 @@ function drawOverDamage(){if(!HW||!HW.overRubble)return;for(const r of HW.overRu
 // =====================================================================
 function render3DAlt(){
   fpResize();const n=G.alt,T=VT[n.type],W=FP.W,H=FP.H,L=fpL,ca=Math.cos(n.th),sa=Math.sin(n.th),heli=n.type==='heli',moto=n.type==='moto',big=!!TOW[n.type]||n.type==='box'||n.type==='amb';
-  const eyeF=heli?5.5:moto?-.5:big?T.len/2-4:T.len*.05,eyeL=heli||moto?0:-1.4,z=heli?(n.z||0)+5:moto?4.6:big?8:n.type==='sports'?3.2:n.type==='muscle'?3.6:4.4;
+  const eyeF=heli?5.5:moto?-.5:big?T.len/2-4:T.len*.05,eyeL=heli||moto?0:TOW[n.type]?-1.8:-1.4,z=heli?(n.z||0)+5:moto?4.6:TOW[n.type]?8.5:big?8:n.type==='sports'?3.2:n.type==='muscle'?3.6:4.4;
   const sh=G.shake>0?(Math.random()-.5)*.03:0,tilt=heli?Math.min(H*.18,(n.z||0)*.5):0;
-  const cam={x:n.x+ca*eyeF-sa*eyeL,y:n.y+sa*eyeF+ca*eyeL,z,yaw:n.th+(G.look||0)+sh,fov:(heli?86:moto?84:76)*DEG,hor:H*.42-tilt,maxD:heli?1200:900};
+  const cam={x:n.x+ca*eyeF-sa*eyeL,y:n.y+sa*eyeF+ca*eyeL,z,yaw:n.th+(G.look||0)+sh,fov:(heli?86:moto?84:TOW[n.type]?78:76)*DEG,hor:(TOW[n.type]?H*.4:H*.42)-tilt,maxD:heli?1200:900};
   FP.skip=n;const boxes=fpCollect(n.x,n.y,MAP.city?600:900);FP.skip=null;
   fpScene(fpL,FP.img,FP.buf,W,H,cam,boxes);
   const p1=n.paint&&n.paint[0]==='#'?n.paint:'#'+((n.c1&255).toString(16).padStart(2,'0'))+(((n.c1>>>8)&255).toString(16).padStart(2,'0'))+(((n.c1>>>16)&255).toString(16).padStart(2,'0'));
@@ -2847,6 +2847,21 @@ function render3DAlt(){
     L.fillStyle='#3d3a35';L.font='700 '+Math.round(W*.045)+'px sans-serif';L.textAlign='center';L.fillStyle='#2a62b0';L.fillText(Math.round(n.z||0)+' FT',W*.5,H*.745);}
   else if(moto){L.fillStyle='#3d3a35';L.fillRect(W*.2,H*.86,W*.6,H*.025);L.fillRect(W*.18,H*.84,W*.06,H*.06);L.fillRect(W*.76,H*.84,W*.06,H*.06);L.fillStyle=p1;L.beginPath();L.ellipse(W*.5,H*.98,W*.13,H*.1,0,0,Math.PI*2);L.fill();
     L.fillStyle='#2a62b0';L.fillRect(W*.47,H*.9,W*.06,H*.02);}
+  else if(TOW[n.type]){
+    // BLUE PHONE: tow trucks use the semi cab view. long hood, light dash, thin pillars, side mirrors instead of a center mirror in the windshield
+    L.fillStyle=n.dead?'#5c574f':p1;L.beginPath();L.moveTo(W*.06,H*.73);L.lineTo(W*.3,H*.645);L.lineTo(W*.7,H*.645);L.lineTo(W*.94,H*.73);L.closePath();L.fill();
+    L.fillStyle='rgba(255,255,255,.25)';L.fillRect(W*.49,H*.648,W*.02,H*.08);L.fillStyle='#9a978f';L.fillRect(W*.3,H*.645,W*.4,H*.006);
+    L.fillStyle='#d6d1c6';L.fillRect(0,H*.72,W,H*.28);L.fillStyle='#9d9a8f';L.fillRect(0,H*.72,W,H*.012);L.fillStyle='#2a62b0';L.fillRect(W*.3,H*.74,W*.4,H*.008);
+    L.fillStyle='#5c5a54';L.beginPath();L.moveTo(0,0);L.lineTo(W*.05,0);L.lineTo(W*.11,H*.72);L.lineTo(0,H*.72);L.closePath();L.fill();
+    L.beginPath();L.moveTo(W,0);L.lineTo(W*.95,0);L.lineTo(W*.89,H*.72);L.lineTo(W,H*.72);L.closePath();L.fill();
+    const mW=FP.mW,mH=FP.mH,my=H*.5;
+    for(let i=0;i<2;i++){const sd=i===0?-1:1,mf=T.len/2-5,ml=sd*(T.wid/2+1.1);
+      const mc={x:n.x+ca*mf-sa*ml,y:n.y+sa*mf+ca*ml,z:8,yaw:n.th+Math.PI-sd*.11,fov:30*DEG,hor:mH*.42,maxD:500};
+      FP.skip=n;fpScene(fmX[i],FP.mImg[i],FP.mBuf[i],mW,mH,mc,boxes);FP.skip=null;
+      const x0=i===0?W*.015:W-W*.015-mW;L.fillStyle='#3d3a35';L.fillRect(x0-2,my-2,mW+4,mH+4);
+      L.save();L.translate(x0+mW,my);L.scale(-1,1);L.drawImage(fmC[i],0,0);L.restore();
+      L.fillStyle='rgba(255,255,255,.18)';L.fillRect(x0,my,mW,1);}
+    if(n.siren){const ph=Math.floor(now()*6)%2;L.fillStyle=ph?'rgba(255,42,31,.22)':'rgba(47,107,255,.22)';L.fillRect(0,0,W,H*.3);}}
   else{
     const hoodY=big?H*.7:H*.66,dashY=big?H*.72:H*.7;
     L.fillStyle=n.dead?'#5c574f':p1;L.beginPath();L.moveTo(W*.02,dashY+H*.02);L.quadraticCurveTo(W*.5,hoodY-H*(big?.0:.04),W*.98,dashY+H*.02);L.lineTo(W*.98,dashY+H*.05);L.lineTo(W*.02,dashY+H*.05);L.closePath();L.fill();
