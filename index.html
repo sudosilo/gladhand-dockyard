@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>gladhand dockyard v22</title>
+<title>gladhand dockyard v23</title>
 <!--
 RED PHONE: trailer backing sim v5
 RED PHONE: v4 written on the Red phone in chat with Claude Opus 5.5, Oct 11 2026 (single van, dock yard, inspection, air lines, magnetic coupling)
@@ -199,6 +199,7 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
   <div class="dCard">
     <div class="dTitle">Dispatch</div>
     <div class="dSub">Pick a tractor, a load, and where it goes.</div>
+    <div class="dh">Drive</div><div class="opts" id="oRide"></div>
     <div class="dh">Tractor</div><div class="opts" id="oTr"></div>
     <div class="dh">Load</div><div class="opts" id="oCfg"></div>
     <div class="dh">Where</div><div class="opts" id="oMap"></div>
@@ -2281,6 +2282,8 @@ function fpVehicle(add,n){
 const EGGS={
   city:[{type:'sports',x:1200,y:800,th:0},{type:'heli',x:640,y:362,th:Math.PI},{type:'heli',x:420,y:1110,th:Math.PI},{type:'sports',x:360,y:1250,th:0},
     {type:'muscle',x:260,y:1150,th:0,paint:'#f2c230'},{type:'police',x:200,y:1165,th:0},{type:'moto',x:440,y:1252,th:0,paint:'#2f6bff'},{type:'pickup',x:150,y:1180,th:-Math.PI/2,paint:'#3f8a3f'},
+    {type:'sedan',x:180,y:1250,th:0,paint:'#c8362b'},{type:'suv',x:250,y:1250,th:0,paint:'#3f8a3f'},{type:'van',x:270,y:1215,th:0,paint:'#e8eaed'},
+    {type:'box',x:450,y:1222,th:0,paint:'#d9822b'},{type:'amb',x:160,y:1062,th:0},
     {type:'rotator',x:250,y:1062,th:0,paint:'#c8362b'},{type:'towflat',x:350,y:1062,th:0,paint:'#f7f5ef'},{type:'wrecker',x:430,y:1062,th:0,paint:'#f2c230'},{type:'tank',x:330,y:1150,th:0,paint:'#5d6b45'}],
   yard:[{type:'sports',x:672,y:560,th:-Math.PI/2},{type:'heli',x:560,y:238,th:Math.PI},{type:'heli',x:60,y:240,th:0},{type:'sports',x:120,y:280,th:0},
     {type:'muscle',x:250,y:198,th:0,paint:'#f2c230'},{type:'moto',x:290,y:140,th:0,paint:'#2f6bff'},
@@ -2290,12 +2293,20 @@ const EGGS={
 function hueU(t){const h=((t%1)+1)%1*6,i=Math.floor(h),f=h-i,q=Math.round(255*(1-f)),u=Math.round(255*f);
   const[r,g,b]=[[255,u,0],[q,255,0],[0,255,u],[0,q,255],[u,0,255],[255,0,q]][i%6];return((255<<24)|(b<<16)|(g<<8)|r)>>>0;}
 function hueQ(t){return hueU(Math.round((((t%1)+1)%1)*36)/36);}
+// BLUE PHONE: launch straight into a ride picked on the dispatch screen. uses the one parked at the home lot when there is one,
+// BLUE PHONE: otherwise rolls one up right beside your truck
+function startRide(){const k=G.ride||'semi';if(k==='semi'||!VT[k])return;const s=G.s;
+  let best=null,bd=1e9;for(const n of NPCS)if(n.kind==='egg'&&n.type===k){const d=Math.hypot(n.x-s.x,n.y-s.y);if(d<bd){bd=d;best=n;}}
+  if(!best||bd>420){const side=MAP.proc?{x:42,y:s.y-80,th:-Math.PI/2}:{x:s.x-Math.sin(s.th)*22,y:s.y+Math.cos(s.th)*22,th:s.th};best=spawnRide({type:k,x:side.x,y:side.y,th:side.th});}
+  enterRide(best);G.camInit=false;}
 function spawnEggs(){
   const L=EGGS[G.map];if(!L)return;
-  for(const e of L){let x=e.x,y=e.y;const T=VT[e.type];
+  for(const e of L)spawnRide(e);
+}
+function spawnRide(e){{let x=e.x,y=e.y;const T=VT[e.type];
     for(let k=0;k<40;k++){const b={cx:x,cy:y,ang:e.th,hl:T.len/2+2,hw:T.wid/2+2};if(!OBST.some(o=>near(b,o)&&obbHit(b,o)))break;x+=7;}
-    const c1=e.paint?col(e.paint):e.type==='sports'?col('#2f6bff'):e.type==='police'?PAL.polB:col('#f7f5ef');
-    NPCS.push({id:++nid,kind:'egg',type:e.type,x,y,th:e.th,ph:e.th,v:0,z:0,rot:0,paint:'',c1,c2:shadeU(c1,.7),hp:e.type==='tank'?3000:e.type==='heli'?160:100,label:T.label,pad:e.type==='heli'?[x,y]:null});}
+    const c1=e.paint?col(e.paint):RIDES[e.type]&&RIDES[e.type].paint?col(RIDES[e.type].paint):e.type==='police'?PAL.polB:col('#f7f5ef');
+    const n={id:++nid,kind:'egg',type:e.type,x,y,th:e.th,ph:e.th,v:0,z:0,rot:0,paint:'',c1,c2:shadeU(c1,.7),hp:e.type==='tank'?3000:e.type==='heli'?160:100,label:T.label,pad:e.type==='heli'?[x,y]:null};NPCS.push(n);return n;}
 }
 function truckDist(n){const s=G.s,m=(TRK.cab+TRK.bumper)/2;return Math.hypot(n.x-(s.x+Math.cos(s.th)*m),n.y-(s.y+Math.sin(s.th)*m));}
 function canExit(){const n=G.alt;if(!n)return false;if(n.dead)return true;return Math.abs(n.v)*MPH<1.5&&(n.z||0)<1&&(truckDist(n)<38||!!onFlat(n));}
@@ -3565,7 +3576,38 @@ function rigText(){
 // =====================================================================
 // RED PHONE: dispatch screen
 // =====================================================================
+const RIDES={semi:{name:'Semi truck',desc:'Your tractor and load. The classic.'},
+  sports:{name:'Sports car',desc:'Electric blue rocket with RGB underglow. Donut machine.',paint:'#2f6bff'},
+  muscle:{name:'Muscle car',desc:'Big torque, blue stripes, smoky burnouts.',paint:'#f2c230'},
+  sedan:{name:'Sedan',desc:'A plain car. Nobody suspects a sedan.',paint:'#c8362b'},
+  suv:{name:'SUV',desc:'Tall, heavy, slides wide.',paint:'#3f8a3f'},
+  pickup:{name:'Pickup',desc:'Work truck with a bed.',paint:'#3f8a3f'},
+  van:{name:'Van',desc:'Slow and boxy. Great for ramming.',paint:'#e8eaed'},
+  police:{name:'Police car',desc:'Horn runs the lights and siren. Traffic gets out of the way.'},
+  amb:{name:'Ambulance',desc:'Horn runs the lights and siren.'},
+  moto:{name:'Motorcycle',desc:'Light, fast, leans into donuts.',paint:'#2f6bff'},
+  box:{name:'Box truck',desc:'Slow delivery truck with an air horn.',paint:'#d9822b'},
+  towflat:{name:'Rollback',desc:'Winch cars onto the bed and haul them off.',paint:'#f7f5ef'},
+  wrecker:{name:'Tow truck',desc:'Hook a car and drag it behind you.',paint:'#f2c230'},
+  rotator:{name:'Rotator',desc:'Crane semi. Lifts cars, helicopters and wrecked tractors.',paint:'#c8362b'},
+  tank:{name:'Tank',desc:'Tracks, a turret, a cannon and a machine gun.',paint:'#5d6b45'},
+  heli:{name:'Helicopter',desc:'Fly over everything. Lands anywhere.',paint:'#f7f5ef'}};
+function rideSwatch(k){const r=RIDES[k],c=k==='police'?'#2e3338':k==='amb'?'#f7f5ef':(r.paint||'#888');
+  if(k==='semi')return swatch('tr',G.trk);
+  if(k==='heli')return '<svg class="sw" viewBox="0 0 30 56"><rect x="10" y="14" width="10" height="16" rx="4" fill="'+c+'" stroke="#3d3a35"/><rect x="11" y="12" width="8" height="5" fill="#9fb8c8"/><rect x="14" y="30" width="2" height="20" fill="'+c+'" stroke="#3d3a35" stroke-width=".5"/><rect x="13" y="31" width="1" height="18" fill="#2a62b0"/><path d="M2 22 L28 22 M15 8 L15 36" stroke="#3d3a35" stroke-width="1.5"/></svg>';
+  if(k==='tank')return '<svg class="sw" viewBox="0 0 30 56"><rect x="4" y="10" width="4" height="36" fill="#3d3a35"/><rect x="22" y="10" width="4" height="36" fill="#3d3a35"/><rect x="8" y="12" width="14" height="32" fill="'+c+'"/><rect x="9" y="22" width="12" height="12" rx="3" fill="#4a573a"/><rect x="14" y="2" width="2" height="22" fill="#3d3a35"/><rect x="9" y="40" width="12" height="2" fill="#2a62b0"/></svg>';
+  const tall={van:1,box:1,amb:1,towflat:1,wrecker:1,rotator:1}[k],h=k==='moto'?26:k==='rotator'?50:tall?44:34,w=k==='moto'?6:tall?18:16,x=15-w/2,y=28-h/2;
+  let s='<svg class="sw" viewBox="0 0 30 56">';if(k!=='moto')s+='<rect x="'+(x-2)+'" y="'+(y+5)+'" width="3" height="7" fill="#3d3a35"/><rect x="'+(x+w-1)+'" y="'+(y+5)+'" width="3" height="7" fill="#3d3a35"/><rect x="'+(x-2)+'" y="'+(y+h-12)+'" width="3" height="7" fill="#3d3a35"/><rect x="'+(x+w-1)+'" y="'+(y+h-12)+'" width="3" height="7" fill="#3d3a35"/>';
+  s+='<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="2" fill="'+c+'" stroke="#4e4a44"/>';
+  if(k==='box'||k==='towflat'||k==='rotator'||k==='wrecker')s+='<rect x="'+x+'" y="'+(y+11)+'" width="'+w+'" height="'+(h-11)+'" fill="'+(k==='box'?'#f1ede3':'#8f949a')+'" stroke="#4e4a44"/>';
+  else if(k!=='moto')s+='<rect x="'+(x+2)+'" y="'+(y+h*.22)+'" width="'+(w-4)+'" height="'+(h*.28)+'" fill="#9fb8c8"/>';
+  if(k==='sports'||k==='muscle')s+='<rect x="13" y="'+y+'" width="1.5" height="'+h+'" fill="'+(k==='sports'?'#f7f5ef':'#2a62b0')+'"/><rect x="15.5" y="'+y+'" width="1.5" height="'+h+'" fill="'+(k==='sports'?'#f7f5ef':'#2a62b0')+'"/>';
+  if(k==='police')s+='<rect x="'+x+'" y="'+(y+h*.42)+'" width="'+w+'" height="5" fill="#f7f5ef"/><rect x="'+(x+3)+'" y="'+(y+h*.44)+'" width="4" height="2" fill="#ff2a1f"/><rect x="'+(x+w-7)+'" y="'+(y+h*.44)+'" width="4" height="2" fill="#2f6bff"/>';
+  if(k==='amb')s+='<rect x="'+x+'" y="'+(y+h*.5)+'" width="'+w+'" height="3" fill="#d8261c"/>';
+  if(k==='rotator')s+='<rect x="14" y="'+(y+16)+'" width="2" height="30" fill="#f2c230"/>';
+  return s+'</svg>';}
 function swatch(kind,key){
+  if(kind==='ride')return rideSwatch(key);
   if(kind==='tr'&&TRACTORS[key].style==='yard'){const t=TRACTORS[key];return '<svg class="sw" viewBox="0 0 30 56"><rect x="6" y="6" width="18" height="16" fill="'+t.paint[1]+'"/><rect x="6" y="4" width="10" height="16" fill="'+t.paint[0]+'"/><rect x="7" y="6" width="8" height="4" fill="#9fb8c8"/><rect x="11" y="24" width="8" height="14" fill="#6a655c"/><rect x="9" y="28" width="12" height="8" fill="#8f8a80"/><rect x="3" y="12" width="4" height="7" fill="#3d3a35"/><rect x="23" y="12" width="4" height="7" fill="#3d3a35"/><rect x="3" y="30" width="4" height="7" fill="#3d3a35"/><rect x="23" y="30" width="4" height="7" fill="#3d3a35"/></svg>';}
   if(kind==='tr'&&TRACTORS[key].style==='dumptruck'){const t=TRACTORS[key];return '<svg class="sw" viewBox="0 0 30 56"><rect x="6" y="2" width="18" height="16" fill="'+t.paint[0]+'"/><rect x="6" y="12" width="18" height="6" fill="'+t.paint[1]+'"/><rect x="5" y="20" width="20" height="30" fill="#6b7177"/><rect x="7" y="22" width="16" height="26" fill="#a0805a"/><rect x="5" y="20" width="20" height="2" fill="#2a62b0"/><rect x="14" y="50" width="2" height="5" fill="#3d3a35"/></svg>';}
   if(kind==='tr'&&TRACTORS[key].style==='apoc'){const t=TRACTORS[key];return '<svg class="sw" viewBox="0 0 30 56"><rect x="3" y="0" width="24" height="4" fill="#3d3a35"/><rect x="5" y="4" width="20" height="26" fill="'+t.paint[0]+'"/><rect x="5" y="20" width="20" height="10" fill="'+t.paint[1]+'"/><rect x="14" y="4" width="2" height="16" fill="#2a62b0"/><rect x="11" y="32" width="8" height="20" fill="#6a655c"/><rect x="3" y="40" width="4" height="7" fill="#3d3a35"/><rect x="23" y="40" width="4" height="7" fill="#3d3a35"/></svg>';}
@@ -3592,6 +3634,7 @@ function renderDispatch(){
       b.innerHTML=swatch(kind,k)+'<div class="on"></div><div class="od"></div>'+(best?'<div class="ob'+(bcls?' '+bcls:'')+'"></div>':'');
       b.children[1].textContent=o.name;b.children[2].textContent=ok?o.desc:'Haul route only. Tap to switch';if(best)b.children[3].textContent=best;
       b.onclick=()=>{pick(kind,k);};el.appendChild(b);}};
+  mk('oRide',RIDES,'ride',G.ride||'semi');
   mk('oTr',TRACTORS,'tr',G.trk);
   mk('oCfg',CFGS,'cfg',G.cfg,k=>CFGS[k].maps.includes(G.map),k=>{const v=BEST[G.map+'|'+k+'|'+(G.map==='yard'?'dock':G.trk)];return v!=null?'Best '+v:'';});
   mk('oMap',MAPS,'map',G.map,null,k=>{const d=DMG[k];return k!=='highway'&&d&&d.cost?'Damage '+money(d.cost):'';},'red');
@@ -3602,10 +3645,11 @@ function pick(kind,k){
   if(kind==='cfg'){G.cfg=k;if(!CFGS[k].maps.includes(G.map))G.map='route';}
   if(kind==='map'){G.map=k;if(!CFGS[G.cfg].maps.includes(k))G.cfg='van';}
   if(kind==='len')G.hwLen=k;
-  try{localStorage.setItem('tbs-pick',JSON.stringify({trk:G.trk,cfg:G.cfg,map:G.map,hwLen:G.hwLen}));}catch(e){}
+  if(kind==='ride')G.ride=k;
+  try{localStorage.setItem('tbs-pick',JSON.stringify({trk:G.trk,cfg:G.cfg,map:G.map,hwLen:G.hwLen,ride:G.ride}));}catch(e){}
   renderDispatch();
 }
-try{const p=JSON.parse(localStorage.getItem('tbs-pick')||'null');if(p&&TRACTORS[p.trk]&&CFGS[p.cfg]&&MAPS[p.map]&&CFGS[p.cfg].maps.includes(p.map)){G.trk=p.trk;G.cfg=p.cfg;G.map=p.map;}if(p&&LENS[p.hwLen])G.hwLen=p.hwLen;}catch(e){}
+try{const p=JSON.parse(localStorage.getItem('tbs-pick')||'null');if(p&&TRACTORS[p.trk]&&CFGS[p.cfg]&&MAPS[p.map]&&CFGS[p.cfg].maps.includes(p.map)){G.trk=p.trk;G.cfg=p.cfg;G.map=p.map;}if(p&&LENS[p.hwLen])G.hwLen=p.hwLen;if(p&&RIDES[p.ride])G.ride=p.ride;}catch(e){}
 $('rollOut').addEventListener('click',()=>{ac();$('disp').classList.remove('on');$('game').classList.add('on');setupRun();});
 
 // =====================================================================
@@ -3620,7 +3664,7 @@ function setupRun(){
   G.zoom=MAP.proc?5:G.cfg==='blade'?5:G.cfg==='doubles'||G.cfg==='lowboy'?4:3;G.camOff={x:0,y:0};
   try{if(!localStorage.getItem('tbs-camtip')){localStorage.setItem('tbs-camtip','1');setTimeout(()=>msg('Drag the map to look around. Pinch to zoom. Double tap to recenter',5),4500);}}catch(e){}
   G.score=1000;G.runPen=0;G.scoreF=0;G.cool={};G.bias=.35;G.lastDoor=null;G.cardUntil=0;parts=[];chunks=[];
-  G.alt=null;G.job=null;SHOTS=[];G.mg=false;startPose();resize();setupInput();initWorld();$('bJobs').classList.toggle('hide',!MAP.jobs);
+  G.alt=null;G.job=null;SHOTS=[];G.mg=false;startPose();resize();setupInput();initWorld();startRide();$('bJobs').classList.toggle('hide',!MAP.jobs);
   {const wu=workUnit(),b1=$('bDump'),b2=$('bDump2');b1.classList.toggle('hide',!wu&&!TRK.bed);b2.classList.toggle('hide',!(TRK.bed&&wu));
    if(TRK.bed){b1.textContent=wu?'Dump 1':'Dump';if(wu)b2.textContent=wu.type==='tank'?'Spill':'Dump 2';}else b1.textContent=wu&&wu.type==='tank'?'Spill':'Dump';}
   $('rsBox').classList.toggle('on',U.some(u=>u.steer));
