@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>gladhand dockyard v31</title>
+<title>gladhand dockyard v32</title>
 <!--
 RED PHONE: trailer backing sim v5
 RED PHONE: v4 written on the Red phone in chat with Claude Opus 5.5, Oct 11 2026 (single van, dock yard, inspection, air lines, magnetic coupling)
@@ -101,6 +101,8 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 .chip{background:var(--panel);border:1px solid var(--edge);border-radius:6px;padding:3px 3px 2px;text-align:center;min-width:0}
 .chip .k{display:block;font-size:10px;color:var(--ink2);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chip.rdc{grid-column:1/-1;display:flex;align-items:center;gap:6px;padding:2px 6px}.chip.rdc .k{flex:1;text-align:left;font-size:11px}.chip.rdc .v{font-size:12px}.chip.rdc .rdb{color:#2a62b0}
+#dTabs{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 8px}.dTab{border:1px solid var(--edge);background:var(--panel);border-radius:14px;padding:5px 10px;font-size:13px;font-weight:700;color:var(--ink2)}.dTab.sel{background:#2a62b0;border-color:#173e75;color:#fff}
+.dRow2{display:flex;gap:7px;margin-top:10px}.dSmall{flex:1;border:1px solid var(--edge);background:var(--panel);border-radius:8px;padding:9px 6px;font-size:13px;font-weight:700;color:#2a62b0}
 #dBoard{display:grid;gap:4px}.dbRow{display:flex;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--edge);border-radius:7px;padding:6px 9px;font-size:13px}.dbN{font-weight:800;flex:1}.dbM{color:var(--ink2);font-size:12px}.dbV{font-weight:800;color:#2a62b0}.dbEmpty{font-size:13px;color:var(--ink2);padding:4px 2px}
 .chip .v{display:block;font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
 .v.good{color:var(--green)}.v.warn{color:var(--amber)}.v.bad{color:var(--red)}
@@ -210,7 +212,8 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
     <div class="dh">Load</div><div class="opts" id="oCfg"></div>
     <div class="dh">Where</div><div class="opts" id="oMap"></div>
     <div id="lenWrap"><div class="dh">Run length</div><div class="opts" id="oLen"></div></div>
-    <div class="dh">Damage records</div><div id="dBoard"></div>
+    <div class="dh">Scoreboards</div><div id="dTabs"></div><div id="dBoard"></div>
+    <div class="dRow2"><button id="bTut" class="dSmall">Tutorial</button><button id="bFresh" class="dSmall">Start over as a new driver</button></div>
     <button id="rollOut">Roll out</button>
   </div>
 </div>
@@ -746,7 +749,7 @@ function chain(s){
   return out;
 }
 function startPose(){
-  drecFinish();G.rdmg={};G.rdNew={};G.rdStart={};
+  drecFinish();G.rdmg={};G.rdNew={};G.rdStart={};scFinish();scRunStart();
   const sp=MAP.spawn,h=sp.h,s=G.s;
   s.th=h;s.v=0;s.delta=0;s.coupled=false;s.rs=0;
   s.kx=sp.kx;s.ky=sp.ky;s.ph=U.map(()=>h);s.sm=U.map(()=>1);
@@ -891,7 +894,7 @@ function drecSave(force){if(!drecDirty&&!force)return;const t=now();if(!force&&t
   try{localStorage.setItem(DREC_KEY,JSON.stringify(DREC));localStorage.setItem(DRUN_KEY,JSON.stringify(DRUNS));}catch(e){}}
 function drecBest(k,map){const r=DREC.veh[k];if(!r)return 0;return map?((r.maps||{})[map]||0):(r.best||0);}
 // BLUE PHONE: every damage cost in the game passes through here. returns the amount so it drops into the old yard cost sums unchanged
-function rd(v){v=Math.round(v||0);if(!(v>0)||!G.rdmg||G.noCredit)return v;const k=vehKey();if(!k)return v;
+function rd(v){v=Math.round(v||0);if(v>0&&!G.noCredit&&G.runSc)scDamaged();if(!(v>0)||!G.rdmg||G.noCredit)return v;const k=vehKey();if(!k)return v;
   const cur=(G.rdmg[k]=(G.rdmg[k]||0)+v),map=G.map,r=DREC.veh[k]||(DREC.veh[k]={best:0,maps:{},runs:0,total:0});r.maps=r.maps||{};
   r.total=(r.total||0)+v;
   if(G.rdStart[k]==null)G.rdStart[k]=(r.best||0)-0;
@@ -940,7 +943,7 @@ function toggleLine(which){
 }
 function couple(){
   const s=G.s,[hx,hy]=hitchOf(s);s.x+=s.kx-hx;s.y+=s.ky-hy;s.v=0;
-  s.coupled=true;G.lineE=false;G.lineS=false;G.inSurf={};
+  s.coupled=true;G.lineE=false;G.lineS=false;G.inSurf={};G.coupleT=now();G.dockDirty=false;
   msg('Locked in. Connect the red and blue lines, top left',4);G.shake=.15;tone(70,.2,'square',.14,40);
 }
 function canPullPin(){return G.s.coupled&&!G.lineE&&!G.lineS&&Math.abs(G.s.v)<.3&&Math.abs(jointRel(G.s,0))<.44;}
@@ -1130,7 +1133,7 @@ function totaled(){
   msg('Cab destroyed. Engine is dead',5);
 }
 function damageFx(dt){
-  fireFx();worldFireTick(dt);
+  fireFx();worldFireTick(dt);scoreTick(dt);tutTick();
   const s=G.s;
   if(G.cab<55){const f=TRK.bumper-G.crumple-2,fx=s.x+Math.cos(s.th)*f,fy=s.y+Math.sin(s.th)*f;
     if(Math.random()<(G.total?.9:.3))smoke([fx,fy],G.total?PAL.smokeD:PAL.smoke);if(G.total&&Math.random()<.5)smoke([fx,fy],PAL.fire);}
@@ -1773,11 +1776,11 @@ function drawNpcTrailer(n){const T=VT[n.type],hx=n.x-Math.cos(n.th)*4,hy=n.y-Mat
   for(const o of[-T.trl+8,-T.trl+12])for(const sd of[-1,1])part(hx,hy,n.ph,o-1.5,o+1.5,sd*2.4,sd*4,PAL.trlTire);
   const bl=n.brake?PAL.brakeL:PAL.brakeD;for(const sd of[-1,1])part(hx,hy,n.ph,rr-.2,rr+.4,sd*3-.6,sd*3+.6,bl);}
 function drawCar(n){
+  glowRide(n);
   if(n.type==='heli'){drawHeli(n);return;}
   if(TOW[n.type]){drawTowRig(n);return;}
   if(n.type==='tank'){drawTank(n);return;}
   const T=VT[n.type],L=T.len/2,Wd=T.wid/2,a=n.th,x=n.x,y=n.y,c1=n.dead&&n.kind==='egg'?PAL.wreck:n.c1,c2=n.c2,P=(f0,f1,l0,l1,c)=>part(x,y,a,f0,f1,l0,l1,c);
-  if(n.type==='sports'&&!n.dead){fillOBB(x,y,a,L+1.2,Wd+1.2,hueQ(now()*.6));}   // BLUE PHONE: RGB underglow
   if(T.trl)drawNpcTrailer(n);
   if(hasCrush(n.cr))drawCrushBody(x,y,a,-L,L,Wd,n.cr,(f,l)=>(Math.abs(l)<Wd-.6&&f>-L*.4&&f<L*.3)?c2:c1,.5);
   else switch(n.type){
@@ -2337,6 +2340,7 @@ function drawHoles(){const st=dstore();if(!st.holes)return;const T=tnow(),X0=G.c
 // BLUE PHONE: first person vehicle models. wheels, body, glass, roof, bumpers, head and tail lights, light bars, beds, boxes
 // =====================================================================
 function fpVehicle(add,n){
+  if(undiscovered(n)&&VT[n.type]){const T=VT[n.type];add({cx:n.x,cy:n.y,ang:n.th,hl:T.len/2+.9,hw:T.wid/2+.9},0,.3,hueQ(now()*.6));}
   if(n.type==='tank'){fpTank(add,n);return;}
   const dark=n.dead?.55:1,c1=n.dead?PAL.wreck:(n.c1||PAL.trl),c2=n.dead?PAL.wreck2:(n.c2||c1),gl=PAL.glass,tire=PAL.tire,bl=n.brake?PAL.brakeL:PAL.brakeD,hd=PAL.headL;
   const box=(ox,oy,a)=>(f0,f1,l0,l1,z0,z1,c,top)=>{const fm=(f0+f1)/2,lm=(l0+l1)/2,ca=Math.cos(a),sa=Math.sin(a);add({cx:ox+ca*fm-sa*lm,cy:oy+sa*fm+ca*lm,ang:a,hl:Math.max(.05,(f1-f0)/2),hw:Math.max(.05,(l1-l0)/2)},z0,z1,c,top);};
@@ -2354,7 +2358,7 @@ function fpVehicle(add,n){
   if(T.trl){const hx=n.x-Math.cos(n.th)*4,hy=n.y-Math.sin(n.th)*4,Q=box(hx,hy,n.ph),rr=-T.trl+2;
     wheels(Q,[rr+6,rr+10],3.3,1.6);Q(rr,2,-4.25,4.25,4,13.5,PAL.trl,PAL.trl);Q(rr-.1,rr+.1,-3.9,3.9,4.2,13,PAL.trlDoor);for(const sd of[-1,1])Q(rr-.2,rr,sd*3-.6,sd*3+.6,4.2,5,bl);}
   switch(n.type){
-    case 'sports':wheels(P,[L*.6,-L*.6],Wd-.4,1.2);if(!n.dead)P(-L-.6,L+.6,-Wd-.6,Wd+.6,0,.25,hueQ(now()*.6));P(-L,L,-Wd,Wd,.8,2.6,c1,c1);P(-L*.3,L*.12,-Wd+.6,Wd-.6,2.6,3.9,gl,c2);
+    case 'sports':wheels(P,[L*.6,-L*.6],Wd-.4,1.2);P(-L,L,-Wd,Wd,.8,2.6,c1,c1);P(-L*.3,L*.12,-Wd+.6,Wd-.6,2.6,3.9,gl,c2);
       for(const sd of[-1,1])P(-L+.2,-L+.8,sd*(Wd-1.2)-.2,sd*(Wd-1.2)+.2,2.6,3.4,PAL.frame);P(-L,-L+1.2,-Wd,Wd,3.4,3.6,PAL.frame);lights(P,L,Wd,1.6);return;
     case 'towflat':case 'wrecker':case 'rotator':{wheels(P,n.type==='rotator'?[L-4,-L+12,-L+8,-L+4]:[L-3.5,-L+5,-L+2.5],Wd-.4,1.7);P(L-8.5,L,-Wd,Wd,1.4,9,c1,c1);P(L-3.2,L-2.8,-Wd+.5,Wd-.5,5,8.4,gl);
       if(n.type==='wrecker'){P(-L+2,L-8.6,-Wd,Wd,1.4,6,c1,PAL.dumpE);P(-L+3,-L+12,-.5,.5,6,9.5,PAL.frame);}else P(-L,L-8.6,-Wd,Wd,1.4,4.6,PAL.dumpE,PAL.tank);
@@ -2612,7 +2616,7 @@ function fireTruckTick(n,dt){
     if(Math.abs(normA(Math.atan2(dy,dx)-a))>Math.atan2(8,d)+.08)continue;f.s-=dt*Math.max(.6,1.8-d/60);
     if(f.s<=0){f.out=Math.round(T);put++;for(let k=0;k<14&&parts.length<500;k++)parts.push({x:f.x+rnd(-3,3),y:f.y+rnd(-3,3),vx:rnd(-3,3),vy:rnd(-6,0),life:rnd(.8,1.5),c:PAL.smoke});}}
   for(const p of PEDS){const dx=p.x-x,dy=p.y-y,d=Math.hypot(dx,dy);if(d<75&&p.dodge<=0&&Math.abs(normA(Math.atan2(dy,dx)-a))<.15){p.dodge=.7;p.dvx=Math.cos(a)*14;p.dvy=Math.sin(a)*14;}}
-  if(put){G.dirty=true;const left=(st.fires||[]).filter(f=>!f.out&&Math.hypot(f.x-x,f.y-y)<120).length;const pay=50*put;G.score+=pay;pop('+'+pay,'good');
+  if(put){G.dirty=true;G.firesOut=(G.firesOut||0)+put;if(G.runSc&&!G.fireDirty)scoreRun('fire','all',G.firesOut);const left=(st.fires||[]).filter(f=>!f.out&&Math.hypot(f.x-x,f.y-y)<120).length;const pay=50*put;G.score+=pay;pop('+'+pay,'good');
     msg(left?'Knocked one down. More fire close by':'Fire is out',2);}
 }
 
@@ -2780,6 +2784,7 @@ function bedLoadTick(dt){const Z=MAP.loadZones;if(!TRK.bed||!Z||G.alt)return;con
 // BLUE PHONE: horns, ride to ride swaps, tow trucks, the rotator crane, the impound lot, and side jobs
 // =====================================================================
 function enterRide(n){
+  unlockRide(n.type);
   if(n.onTrl){const c=chain(G.s)[n.onTrl.i];if(c)c.u.load=0;n.onTrl=null;}
   n.label=VT[n.type].label;if(!n.dead)n.hp=Math.max(n.hp,100);n.z=n.z||0;n.ghostTrl=true;
   if(!G.alt){G.truckZoom=G.zoom;G.s.v=0;}else{G.alt.player=false;G.alt.v=0;G.alt.siren=false;}
@@ -2883,7 +2888,7 @@ const JOBS={husk:{name:'Haul a husk',desc:'Lift a wrecked tractor with the rotat
 function ensureHusks(){const st=dstore(),have=st.wrecks.filter(w=>w.run!==G.runId&&!w.hooked);if(have.length>=2)return;const J=MAP.jobs;
   for(const[x,y,th]of J.husks){if(have.length>=3)break;if(st.wrecks.some(w=>Math.hypot(w.x-x,w.y-y)<20))continue;
     const w={x,y,th,tail:-4.5,cab:7,bumper:18,b0:20,half:4.1,L:16,track:3.5,t:Math.round(tnow()),run:0};st.wrecks.push(w);have.push(w);}G.dirty=true;}
-function startJob(k){const J=MAP.jobs,s=G.s;if(!J)return;G.job=null;const t0=now();
+function startJob(k){const J=MAP.jobs,s=G.s;if(!J)return;G.job=null;const t0=now();G.jobDirty=false;
   if(k==='husk'){ensureHusks();const L=dstore().wrecks.filter(w=>w.run!==G.runId&&!w.hooked);if(!L.length)return;const w=L[Math.floor(Math.random()*L.length)];G.job={k,ref:w,t0};}
   if(k==='tow'){const L=NPCS.filter(n=>n.kind==='pk'&&!n.onVeh&&!n.towBy&&nDist(n)>150);if(!L.length){msg('No cars to tow right now',2);return;}G.job={k,ref:L[Math.floor(Math.random()*L.length)],t0};}
   if(k==='taxi'){const S=J.taxi.slice().sort(()=>Math.random()-.5),a=S[0],b=S.find(q=>Math.hypot(q[0]-a[0],q[1]-a[1])>250)||S[1];
@@ -2892,7 +2897,7 @@ function startJob(k){const J=MAP.jobs,s=G.s;if(!J)return;G.job=null;const t0=now
   if(k==='fire'){const j=startFireJob();if(!j)return;G.job=j;}
   $('jobs').classList.remove('on');msg('Job: '+JOBS[k].name+'. '+JOBS[k].desc,5);tone(520,.1,'triangle',.06);setTimeout(()=>tone(660,.12,'triangle',.06),110);
 }
-function completeJob(){const j=G.job;if(!j)return;const sec=now()-j.t0,bonus=Math.max(0,Math.round(300-sec*1.5)),pay=JOBS[j.k].pay+bonus;G.score+=pay;pop('+'+pay,'good');
+function completeJob(){const j=G.job;if(!j)return;if(G.runSc&&!G.jobDirty)scoreRun('job',j.k,now()-j.t0);const sec=now()-j.t0,bonus=Math.max(0,Math.round(300-sec*1.5)),pay=JOBS[j.k].pay+bonus;G.score+=pay;pop('+'+pay,'good');
   G.job=null;msg('Job done. '+JOBS[j.k].name+' paid '+pay+(bonus?' with a speed bonus':''),4);tone(660,.15,'triangle',.08);setTimeout(()=>tone(880,.15,'triangle',.08),150);setTimeout(()=>tone(990,.3,'triangle',.08),300);}
 function jobTarget(){const j=G.job;if(!j)return null;
   if(j.k==='husk'||j.k==='tow'){const r=j.ref;const held=(r.hooked)||(r.onVeh||r.towBy);if(held){const z=MAP.impound;return{x:(z.x0+z.x1)/2,y:(z.y0+z.y1)/2,r:30,lab:'impound'};}return{x:r.x,y:r.y,r:14,lab:'pickup'};}
@@ -2915,7 +2920,7 @@ function jobHint(){const j=G.job,t=jobTarget();if(!t)return null;const ref=G.alt
   if(j.k==='taxi')return(j.stage===0?'Passenger waiting, ':'Drop off, ')+d+' ft. Land or stop right next to the marker';
   if(j.k==='haul')return'Drop the trailer in the marked lot, '+d+' ft. Pull the pin there';
   if(j.k==='fire'){const n=fireJobLeft(j);return(G.alt&&G.alt.type==='fire'?'Fire, '+d+' ft. ':'Grab a fire truck from the home lot or the fire station. Fire, '+d+' ft. ')+(n===1?'One flame left':n+' flames burning');}}
-function drawJobMark(){const t=jobTarget();if(!t)return;const ph=now()*2;for(let k=0;k<16;k++){const q=k/16*6.28+ph*.3;fillOBB(t.x+Math.cos(q)*t.r,t.y+Math.sin(q)*t.r,q,1.2,.5,k%2?PAL.stripe:PAL.sigY);}
+function drawJobMark(){const t=jobTarget()||tutTarget();if(!t)return;const ph=now()*2;for(let k=0;k<16;k++){const q=k/16*6.28+ph*.3;fillOBB(t.x+Math.cos(q)*t.r,t.y+Math.sin(q)*t.r,q,1.2,.5,k%2?PAL.stripe:PAL.sigY);}
   fillOBB(t.x,t.y,ph,1.2,1.2,PAL.stripe);}
 function openJobs(){const el=$('jobsList');el.innerHTML='';
   for(const k in JOBS){const b=document.createElement('button');b.className='opt';b.innerHTML='<div class="on"></div><div class="od"></div><div class="ob"></div>';b.children[0].textContent=JOBS[k].name;b.children[1].textContent=JOBS[k].desc;b.children[2].textContent='Pays '+JOBS[k].pay+' plus speed bonus';b.onclick=()=>startJob(k);el.appendChild(b);}
@@ -3039,7 +3044,7 @@ function tankTick(n,dt){
   for(const p of PEDS){const d=Math.hypot(p.x-n.x,p.y-n.y);if(d<70&&p.dodge<=0&&Math.random()<dt*2){p.dodge=.8;p.dvx=(p.x-n.x)/(d||1)*14;p.dvy=(p.y-n.y)/(d||1)*14;}}
 }
 function muzzle(n){const a=n.th+(n.tur||0),L=16;return[n.x+Math.cos(a)*L,n.y+Math.sin(a)*L,a];}
-function fireShot(n,kind){
+function fireShot(n,kind){G.rounds=(G.rounds||0)+1;if(G.runSc)scoreRun('tank','all',G.rounds);
   const[x,y,a]=muzzle(n),sp=kind==='mg'?900:620,ja=kind==='mg'?a+rnd(-.025,.025):a;
   const ox=kind==='mg'?-Math.sin(a)*.5:0,oy=kind==='mg'?Math.cos(a)*.5:0;
   SHOTS.push({x:x+ox,y:y+oy,vx:Math.cos(ja)*sp,vy:Math.sin(ja)*sp,life:kind==='mg'?.6:1.6,kind,a:ja});
@@ -3410,7 +3415,8 @@ function goals(dt){
 function grade(p,a,b,c){return p>=a?'A':p>=b?'B':p>=c?'C':'D';}
 function docked(lat,angErr){
   const deg=angErr/DEG,pts=Math.round(clamp(250-Math.abs(lat)*40-deg*15-G.pullups*25,25,250));
-  G.score+=pts;pop('+'+pts,'good');
+  G.score+=pts;pop('+'+pts,'good');G.tutDocked=true;
+  if(G.runSc&&!G.dockDirty&&G.coupleT!=null){scoreRun('dock',G.map,pts);scoreRun('docktime',G.map,now()-G.coupleT);}G.coupleT=now();G.dockDirty=false;
   const g=grade(pts,225,180,120),line={A:'Hire this driver',B:'Clean enough',C:'Technically docked',D:'The dock crew is laughing'}[g];
   const isBest=saveBest(G.map+'|'+G.cfg+'|dock',pts);
   showCard(g,'Door '+G.target.n+'. '+line,'Off center '+Math.abs(lat).toFixed(1)+' ft. Angle '+deg.toFixed(1)+'°. Pull-ups '+G.pullups+'. +'+pts+(isBest?'. New best.':''),false);
@@ -3730,7 +3736,7 @@ function hud(dt){
   const cf=$('cFifth');cf.textContent=s.coupled?'Locked':'Open';cf.className='v '+(s.coupled?'good':'warn');
   const cc=$('cCab');cc.textContent=G.total?'Totaled':Math.round(G.cab)+'%';cc.className='v '+(G.cab<35?'bad':G.cab<75?'warn':'good');
   const ct=$('cTrl');ct.textContent=Math.round(G.trl)+'%';ct.className='v '+(G.trl<35?'bad':G.trl<75?'warn':'good');
-  {const R=drecRun(),rk=$('rdK'),rv=$('rdV'),rb=$('rdB');if(R.k){rk.textContent=vehName(R.k)+' run';rv.textContent=money(R.cur);rv.className='v '+(R.cur>0&&R.cur>=R.best?'good':R.cur>0?'bad':'');rb.textContent='Best '+money(R.best);}else{rk.textContent='Tank damage does not score';rv.textContent='';rb.textContent='';}}
+  stripUpdate();
   const yc=dstore().cost,cy=$('cYard');cy.textContent=money(yc);cy.className='v '+(yc>0?'bad':'good');
   if(MAP.goal==='docks'){$('cGoalK').textContent='Door';$('cDoor').textContent=G.target?String(G.target.n):'None';}
   else if(MAP.goal==='miles'){$('cGoalK').textContent='Miles';$('cDoor').textContent=HW.miles.toFixed(1)+(G.hwLenMi?' of '+G.hwLenMi:'');}
@@ -3745,18 +3751,20 @@ function hud(dt){
    if(ft){const td=(G.alt.tur||0)/DEG;$('rsTxt').innerHTML='Water cannon<br>'+(Math.abs(td)<.5?'Forward':(td>0?'Right ':'Left ')+Math.abs(td).toFixed(0)+'°');$('bWater').textContent='Water '+Math.round(G.alt.water==null?100:G.alt.water)+'%';}$('side').classList.toggle('riding',!!G.alt);
    if(tk){const td=(G.alt.tur||0)/DEG;$('rsTxt').innerHTML='Turret<br>'+(Math.abs(td)<.5?'Forward':(td>0?'Right ':'Left ')+Math.abs(td).toFixed(0)+'°');$('bCannon').textContent=G.alt.cd>0?'Loading':'Cannon';}}
   // RED PHONE: context buttons
-  const want=[];if(canPullPin())want.push('pin');if(JR)want.push(JR);
+  const want=[];if(canPullPin())want.push('pin');if(JR)want.push(JR);if(G.tut&&TUT[G.tut.step]&&TUT[G.tut.step].skip&&now()-G.tut.st>20)want.push('tutskip');
   const key=want.join(','),ctx=$('ctx');
   if(ctx.dataset.k!==key){ctx.dataset.k=key;ctx.innerHTML='';
     for(const w of want){const b=document.createElement('button');
       if(w==='pin'){b.className='cbtn pin';b.textContent='Pull the fifth wheel pin';b.onclick=pullPin;}
       if(w==='mats'){b.className='cbtn';b.textContent='Jerry rig: floor mats under the dualies';b.onclick=jerryRig;}
       if(w==='tape'){b.className='cbtn';b.textContent='Jerry rig: duct tape the sidewall';b.onclick=jerryRig;}
+      if(w==='tutskip'){b.className='cbtn';b.textContent='Skip this tutorial step';b.onclick=tutSkip;}
       ctx.appendChild(b);}}
   // RED PHONE: ticker hints when no event message is showing
   if(now()>G.msgUntil){
     let h;
-    if(G.job&&!G.total&&!(G.alt&&(canExit()||altNear())))h=jobHint();
+    if(G.tut&&tutHint()&&!(G.alt&&(canExit()||altNear())&&G.tut.step<7))h=tutHint();
+    else if(G.job&&!G.total&&!(G.alt&&(canExit()||altNear())))h=jobHint();
     else if(G.alt)h=altHint();
     else if(eggNear())h='Hit your horn to get in the '+VT[eggNear().type].label;
     else if(G.total)h='Totaled. Rig menu has Reset truck and Dispatch';
@@ -3933,19 +3941,125 @@ function swatch(kind,key){
   return '<svg class="sw" viewBox="0 0 30 56">'+(key==='yard'?'<rect x="2" y="2" width="26" height="14" fill="#d9d4c6"/><rect x="6" y="12" width="5" height="4" fill="#7d9cb0"/><rect x="19" y="12" width="5" height="4" fill="#7d9cb0"/><rect x="2" y="16" width="26" height="38" fill="#aaa79f"/>':'<rect x="2" y="2" width="26" height="52" fill="#d8c9a2"/><path d="M6 54 V30 H24 V6" stroke="#aaa79f" stroke-width="6" fill="none"/><circle cx="9" cy="10" r="3" fill="#9c9c98"/>')+'</svg>';
 }
 function openDispatch(){
+  if(!PROG.tut&&!G.tutOffered){G.tutOffered=true;startTutorial();return;}G.tut=null;
   running=false;$('game').classList.remove('on');$('disp').classList.add('on');renderDispatch();
 }
+// =====================================================================
+// BLUE PHONE: progression. a new driver starts with the semi and a tutorial. every ride you find in the world and honk next to
+// BLUE PHONE: gets unlocked for the launch menu. rides you have not found yet glow so you can spot them.
+// BLUE PHONE: players from before this update keep everything unlocked
+// =====================================================================
+const PROG_KEY='tbs-prog';
+let PROG=null;try{PROG=JSON.parse(localStorage.getItem(PROG_KEY)||'null');}catch(e){PROG=null;}
+if(!PROG||!PROG.unl){let vet=false;try{vet=!!(localStorage.getItem('tbs-pick')||localStorage.getItem('tbs-best')||localStorage.getItem('tbs-damage'));}catch(e){}
+  PROG={v:1,tut:vet?1:0,unl:{semi:1}};if(vet)for(const k in RIDES)PROG.unl[k]=1;}
+function progSave(){try{localStorage.setItem(PROG_KEY,JSON.stringify(PROG));}catch(e){}}
+progSave();
+function unlocked(k){return k==='semi'||!!PROG.unl[k];}
+function undiscovered(n){return(n.kind==='egg'||n.kind==='pk')&&!n.player&&!n.dead&&RIDES[n.type]&&!unlocked(n.type);}
+function unlockRide(k){if(unlocked(k)||!RIDES[k])return false;PROG.unl[k]=1;progSave();
+  setTimeout(()=>{msg('Unlocked the '+RIDES[k].name.toLowerCase()+'. Pick it from the launch menu any time',4);pop('Unlocked','good');},1600);return true;}
+function progReset(){PROG={v:1,tut:0,unl:{semi:1}};progSave();G.ride='semi';}
+function glowRide(n){if(!undiscovered(n))return;const T=VT[n.type];if(!T)return;fillOBB(n.x,n.y,n.th,T.len/2+1.4,T.wid/2+1.4,hueQ(now()*.6));}
+
+// =====================================================================
+// BLUE PHONE: tutorial. step by step in the dock yard: drive, steer, back under the trailer, air lines, dock, honk into a car, honk back out
+// =====================================================================
+const TUT=[
+  {t:'Welcome to the yard. Tap D, then hold Gas to roll forward a little',ok:()=>!G.alt&&G.gear==='D'&&G.s.v*MPH>2},
+  {t:'Drag the steering wheel around to turn. Give it a good spin',ok:()=>Math.abs(G.wheelDeg)>120},
+  {t:'Tap R and hold Gas to back up. Your trailer is right behind you',ok:()=>G.gear==='R'&&G.s.v*MPH<-1},
+  {t:'Keep backing straight under the trailer until the fifth wheel locks. Double tap the wheel to center it',ok:()=>G.s.coupled},
+  {t:'Tap the Red button, then the Blue button, top left, to hook up the air lines',ok:()=>G.s.coupled&&G.lineE&&G.lineS},
+  {t:'Dispatch gave you a door. Pull forward, swing wide, then back the trailer into the flashing door. Driver view and the mirrors help',ok:()=>G.tutDocked,skip:1},
+  {t:'Docked. Now find a car, stop right next to it and hit Horn to climb in. Follow the ring',ok:()=>!!G.alt,skip:1},
+  {t:'That ride is unlocked for the launch menu now. Drive back to your truck, stop beside it and hit Horn to climb out',ok:()=>!G.alt&&G.tutWasIn,skip:1},
+];
+function startTutorial(){G.tut={step:0,t0:now(),st:now()};G.tutDocked=false;G.tutWasIn=false;G.map='yard';G.cfg='van';G.trk='daycab';G.ride='semi';
+  $('disp').classList.remove('on');$('game').classList.add('on');setupRun();G.tut={step:0,t0:now(),st:now()};msg('Tutorial. Follow the yellow bar at the top',3);}
+function tutTick(){const T=G.tut;if(!T)return;if(G.alt)G.tutWasIn=true;const S=TUT[T.step];if(!S)return;
+  if(S.ok()){T.step++;T.st=now();tone(520,.1,'square',.04);if(T.step>=TUT.length){G.tut=null;PROG.tut=1;progSave();
+      showCard('A','Tutorial done','Every ride you find in the world and honk next to gets unlocked for the launch menu. Unfound rides glow. Head to Dispatch from the Rig menu when you are ready.',false);}
+    else msg('Nice',1);}}
+function tutSkip(){const T=G.tut;if(!T)return;if(T.step===5)G.tutDocked=true;else if(T.step===6)G.tutWasIn=true,T.step++;else T.step++;T.st=now();}
+function tutHint(){const T=G.tut;if(!T||!TUT[T.step])return null;return'Tutorial: '+TUT[T.step].t;}
+function tutTarget(){const T=G.tut;if(!T||T.step!==6)return null;const s=G.s;let best=null,bd=1e9;for(const n of NPCS){if(n.kind!=='egg'||n.type==='heli'||n.type==='tank')continue;const d=Math.hypot(n.x-s.x,n.y-s.y);if(d<bd){bd=d;best=n;}}
+  return best?{x:best.x,y:best.y,r:16,lab:'ride'}:null;}
+
+// =====================================================================
+// BLUE PHONE: scoreboards. every board keeps its best per key on this phone and queues each run's results for the score server.
+// BLUE PHONE: damage means any dollar of damage you cause. a clean result means none since the thing started
+// =====================================================================
+const BOARDS={
+  damage:{name:'Damage',how:'Wreck things. Each vehicle keeps its own best run. The tank does not score.'},
+  survive:{name:'Survival',hi:1,fmt:'time',how:'Time spent driving without wrecking whatever you are in. Sitting still does not count.'},
+  speed:{name:'Speed run',hi:1,fmt:'time',how:'Longest stretch held near top speed in a car without touching anything.'},
+  fire:{name:'Firefighter',hi:1,fmt:'n',how:'Fires put out in one run without causing any damage.'},
+  tank:{name:'Tank rounds',hi:1,fmt:'n',how:'Rounds fired from the tank in one run, cannon and machine gun.'},
+  dock:{name:'Clean docks',hi:1,fmt:'pts',how:'Best dock score with no damage since you hooked the trailer.'},
+  docktime:{name:'Fast docks',hi:0,fmt:'time',how:'Fastest clean dock, from hooking the trailer to backing it in.'},
+  job:{name:'Clean jobs',hi:0,fmt:'time',how:'Fastest time on each side job with no damage while it ran.'}};
+const SC_KEY='tbs-scores',SQ_KEY='tbs-scoreq';
+let SC={v:1,b:{}};try{const r=JSON.parse(localStorage.getItem(SC_KEY)||'null');if(r&&r.b)SC=r;}catch(e){}
+let SQ=[];try{SQ=JSON.parse(localStorage.getItem(SQ_KEY)||'[]')||[];}catch(e){SQ=[];}
+let scDirty=false,scSaveT=0;
+function scSave(force){if(!scDirty&&!force)return;const t=now();if(!force&&t-scSaveT<2)return;scSaveT=t;scDirty=false;try{localStorage.setItem(SC_KEY,JSON.stringify(SC));localStorage.setItem(SQ_KEY,JSON.stringify(SQ));}catch(e){}}
+function scBest(b,k){const e=SC.b[b]&&SC.b[b][k];return e?e.v:null;}
+function better(b,v,old){return old==null||(BOARDS[b].hi?v>old:v<old);}
+function scoreRun(b,k,v,meta){if(!G.runSc)return false;const rk=b+'|'+k,cur=G.runSc[rk];if(cur&&!better(b,v,cur.v))return false;
+  G.runSc[rk]={b,k,v,meta:meta||{}};const old=scBest(b,k);if(!better(b,v,old))return false;
+  SC.b[b]=SC.b[b]||{};SC.b[b][k]={v,t:Date.now(),map:G.map,...(meta||{})};scDirty=true;scSave(false);
+  if(old!=null&&!G.scNew[rk]){G.scNew[rk]=1;pop('Record','good');msg('New '+BOARDS[b].name.toLowerCase()+' record. '+scFmt(b,v),3);}
+  return true;}
+function scFinish(){if(!G.runSc)return[];const out=[];for(const rk in G.runSc){const r=G.runSc[rk],rec={v:1,run:G.runId,board:r.b,key:r.k,val:Math.round(r.v*100)/100,map:G.map,trk:G.trk,meta:r.meta,best:scBest(r.b,r.k)===r.v,t:Date.now(),sent:false};out.push(rec);SQ.push(rec);}
+  if(SQ.length>300)SQ.splice(0,SQ.length-300);G.runSc={};G.scNew={};scDirty=true;scSave(true);
+  if(out.length&&typeof window.gdScoreHook==='function'){try{window.gdScoreHook(out);}catch(e){}}return out;}
+function scFmt(b,v){const f=BOARDS[b].fmt;if(f==='time'){const s=Math.round(v*10)/10;return s>=60?Math.floor(s/60)+'m '+Math.round(s%60)+'s':s.toFixed(1)+'s';}if(f==='pts')return Math.round(v)+' pts';return String(Math.round(v));}
+function scKeyName(b,k){if(b==='survive'||b==='dock'||b==='docktime')return MAPS[k]?MAPS[k].name:k;if(b==='job')return JOBS[k]?JOBS[k].name:k;if(b==='speed')return vehName(k);if(b==='fire')return'Fire truck';if(b==='tank')return'Tank';return k;}
+// BLUE PHONE: marks damage for every clean board. called from the shared damage counter
+function scDamaged(){const t=now();G.lastDmgT=t;G.fireDirty=true;G.jobDirty=true;G.dockDirty=true;}
+function scRunStart(){G.runSc={};G.scNew={};G.aliveT=0;G.aliveDone=false;G.firesOut=0;G.fireDirty=false;G.rounds=0;G.spdT=0;G.spdStart=0;G.lastDmgT=-1;G.jobDirty=false;G.dockDirty=false;G.coupleT=null;}
+function spdThresh(k){const d=DRV[k];if(!d)return null;return d.top>=125?100:Math.round(d.top*.8);}
+function scoreTick(dt){if(!G.runSc)return;const n=G.alt;
+  // BLUE PHONE: survival counts while moving and stops for good once you wreck
+  const dead=G.total||(n&&n.dead);if(dead)G.aliveDone=true;
+  const mph=n?Math.abs(n.v)*MPH:Math.abs(G.s.v)*MPH;
+  if(!G.aliveDone&&mph>5){const prev=Math.floor(G.aliveT);G.aliveT+=dt;if(Math.floor(G.aliveT)!==prev)scoreRun('survive',G.map,G.aliveT);}
+  // BLUE PHONE: speed run. hold the car near its top speed, any damage or slowing down ends the stretch
+  if(n&&!n.dead&&DRV[n.type]&&n.type!=='heli'&&n.type!=='tank'){const th=spdThresh(n.type);
+    if(mph>=th){if(G.spdT===0)G.spdStart=now();G.spdT+=dt;if(G.lastDmgT>=G.spdStart)G.spdT=0;else if(G.spdT>1)scoreRun('speed',n.type,G.spdT,{mph:th});}
+    else G.spdT=0;}else G.spdT=0;
+  scSave(false);}
+function scBoard(){const el=$('dBoard'),tabs=$('dTabs');if(!el||!tabs)return;const sel=G.boardSel||'damage';tabs.innerHTML='';
+  for(const b in BOARDS){const t=document.createElement('button');t.className='dTab'+(b===sel?' sel':'');t.textContent=BOARDS[b].name;t.onclick=()=>{G.boardSel=b;scBoard();};tabs.appendChild(t);}
+  if(sel==='damage'){drecBoard();return;}
+  el.innerHTML='';const E=SC.b[sel]||{},ks=Object.keys(E).sort((a,b)=>BOARDS[sel].hi?E[b].v-E[a].v:E[a].v-E[b].v);
+  const how=document.createElement('div');how.className='dbEmpty';how.textContent=BOARDS[sel].how;el.appendChild(how);
+  for(const k of ks){const r=E[k],row=document.createElement('div');row.className='dbRow';row.innerHTML='<span class="dbN"></span><span class="dbM"></span><span class="dbV"></span>';
+    row.children[0].textContent=scKeyName(sel,k);row.children[1].textContent=sel==='speed'&&r.mph?'over '+r.mph+' mph':(sel==='fire'||sel==='tank'||sel==='speed')&&r.map&&MAPS[r.map]?MAPS[r.map].name:'';
+    row.children[2].textContent=scFmt(sel,r.v);el.appendChild(row);}}
+// BLUE PHONE: the strip under the gauges shows the board that fits what you are driving
+function stripUpdate(){const rk=$('rdK'),rv=$('rdV'),rb=$('rdB'),n=G.alt;
+  const set=(k,v,b,good)=>{rk.textContent=k;rv.textContent=v;rv.className='v '+(good?'good':'');rb.textContent=b;};
+  if(n&&n.type==='tank'){const b=scBest('tank','all');set('Tank rounds this run',String(G.rounds||0),'Best '+(b||0),b!=null&&G.rounds>=b);return;}
+  if(n&&n.type==='fire'){const b=scBest('fire','all');set(G.fireDirty?'Fires out, not clean':'Fires out clean',String(G.firesOut||0),'Best '+(b||0),!G.fireDirty&&G.firesOut>0);return;}
+  if(n&&G.spdT>0){const b=scBest('speed',n.type);set('Over '+spdThresh(n.type)+' mph clean',scFmt('speed',G.spdT),'Best '+(b?scFmt('speed',b):'0s'),true);return;}
+  const R=drecRun();if(R.k){set(vehName(R.k)+' run',money(R.cur),'Best '+money(R.best),R.cur>0&&R.cur>=R.best);rv.className='v '+(R.cur>0&&R.cur>=R.best?'good':R.cur>0?'bad':'');}else set('','','',false);}
+window.gdScores.boards=()=>JSON.parse(JSON.stringify(SC));
+{const pend=window.gdScores.pending,mark=window.gdScores.markSent;window.gdScores.pending=()=>pend().concat(SQ.filter(r=>!r.sent));
+  window.gdScores.markSent=runs=>{mark(runs.filter(r=>r.veh));const ids=new Set(runs.filter(r=>r.board).map(r=>r.run+'|'+r.board+'|'+r.key));for(const r of SQ)if(ids.has(r.run+'|'+r.board+'|'+r.key))r.sent=true;scDirty=true;scSave(true);};}
+addEventListener('pagehide',()=>{scFinish();});
 function renderDispatch(){
   const mk=(id,obj,kind,sel,okFn,bestFn,bcls)=>{const el=$(id);el.innerHTML='';
     for(const k in obj){const o=obj[k],b=document.createElement('button'),ok=okFn?okFn(k):true;
       b.className='opt'+(k===sel?' sel':'')+(ok?'':' off');
       const best=bestFn?bestFn(k):'';
       b.innerHTML=swatch(kind,k)+'<div class="on"></div><div class="od"></div>'+(best?'<div class="ob'+(bcls?' '+bcls:'')+'"></div>':'');
-      b.children[1].textContent=o.name;b.children[2].textContent=ok?o.desc:'Haul route only. Tap to switch';if(best)b.children[3].textContent=best;
+      b.children[1].textContent=o.name;b.children[2].textContent=ok?o.desc:(kind==='ride'?'Locked. Find one out in the world and honk next to it':'Haul route only. Tap to switch');if(best)b.children[3].textContent=best;
       b.onclick=()=>{pick(kind,k);};el.appendChild(b);}};
-  mk('oRide',RIDES,'ride',G.ride||'semi',null,k=>{if(k==='tank'||k==='semi')return'';const b=drecBest(k);return b?'Wrecked '+money(b):'';},'red');
+  mk('oRide',RIDES,'ride',G.ride||'semi',k=>unlocked(k),k=>{if(k==='tank'||k==='semi')return'';const b=drecBest(k);return b?'Wrecked '+money(b):'';},'red');
   mk('oTr',TRACTORS,'tr',G.trk,null,k=>{const b=drecBest(k);return b?'Wrecked '+money(b):'';},'red');
-  drecBoard();
+  scBoard();
   mk('oCfg',CFGS,'cfg',G.cfg,k=>CFGS[k].maps.includes(G.map),k=>{const v=BEST[G.map+'|'+k+'|'+(G.map==='yard'?'dock':G.trk)];return v!=null?'Best '+v:'';});
   mk('oMap',MAPS,'map',G.map,null,k=>{const d=DMG[k];return k!=='highway'&&d&&d.cost?'Damage '+money(d.cost):'';},'red');
   $('lenWrap').classList.toggle('hide',G.map!=='highway');if(G.map==='highway')mk('oLen',LENS,'len',G.hwLen,null,k=>{const v=BEST['highway|'+k+'|'+G.cfg+'|'+G.trk];return v!=null?'Best '+v:'';});
@@ -3955,11 +4069,13 @@ function pick(kind,k){
   if(kind==='cfg'){G.cfg=k;if(!CFGS[k].maps.includes(G.map))G.map='route';}
   if(kind==='map'){G.map=k;if(!CFGS[G.cfg].maps.includes(k))G.cfg='van';}
   if(kind==='len')G.hwLen=k;
-  if(kind==='ride')G.ride=k;
+  if(kind==='ride'){if(!unlocked(k)){msg('Locked',1);return;}G.ride=k;}
   try{localStorage.setItem('tbs-pick',JSON.stringify({trk:G.trk,cfg:G.cfg,map:G.map,hwLen:G.hwLen,ride:G.ride}));}catch(e){}
   renderDispatch();
 }
-try{const p=JSON.parse(localStorage.getItem('tbs-pick')||'null');if(p&&TRACTORS[p.trk]&&CFGS[p.cfg]&&MAPS[p.map]&&CFGS[p.cfg].maps.includes(p.map)){G.trk=p.trk;G.cfg=p.cfg;G.map=p.map;}if(p&&LENS[p.hwLen])G.hwLen=p.hwLen;if(p&&RIDES[p.ride])G.ride=p.ride;}catch(e){}
+try{const p=JSON.parse(localStorage.getItem('tbs-pick')||'null');if(p&&TRACTORS[p.trk]&&CFGS[p.cfg]&&MAPS[p.map]&&CFGS[p.cfg].maps.includes(p.map)){G.trk=p.trk;G.cfg=p.cfg;G.map=p.map;}if(p&&LENS[p.hwLen])G.hwLen=p.hwLen;if(p&&RIDES[p.ride]&&unlocked(p.ride))G.ride=p.ride;}catch(e){}
+$('bTut').addEventListener('click',()=>{ac();startTutorial();});
+$('bFresh').addEventListener('click',()=>{const b=$('bFresh');if(b.dataset.arm){delete b.dataset.arm;progReset();b.textContent='Start over as a new driver';ac();startTutorial();return;}b.dataset.arm=1;b.textContent='Tap again to lock every ride and replay the tutorial';setTimeout(()=>{delete b.dataset.arm;b.textContent='Start over as a new driver';},4000);});
 $('rollOut').addEventListener('click',()=>{ac();$('disp').classList.remove('on');$('game').classList.add('on');setupRun();});
 
 // =====================================================================
