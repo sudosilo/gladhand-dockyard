@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>gladhand dockyard v19</title>
+<title>gladhand dockyard v20</title>
 <!--
 RED PHONE: trailer backing sim v5
 RED PHONE: v4 written on the Red phone in chat with Claude Opus 5.5, Oct 11 2026 (single van, dock yard, inspection, air lines, magnetic coupling)
@@ -1841,7 +1841,10 @@ function fpCollect(cx,cy,R){
     add(o,0,h,c,o.roof?col(o.roof):o.type==='building'?PAL.roof:null);}
   for(const d of DOORS){const dir=d.dir||1,y=(d.y||51.2)-dir*1.35;if(Math.abs(d.x-cx)>R||Math.abs(y-cy)>R)continue;add({cx:d.x,cy:y,hl:5,hw:.2},0,12,G.target===d&&Math.floor(now()*2)%2?PAL.yellow||PAL.lineY:PAL.door);}
   for(const c of cones)if(Math.abs(c.x-cx)<R&&Math.abs(c.y-cy)<R)add({cx:c.x,cy:c.y,ang:c.ang,hl:c.knock?1:.6,hw:c.knock?.5:.6},0,c.knock?.8:2.4,PAL.cone);
-  for(const n of NPCS){if(Math.abs(n.x-cx)>R||Math.abs(n.y-cy)>R)continue;fpVehicle(add,n);}
+  for(const n of NPCS){if(n===FP.skip||Math.abs(n.x-cx)>R||Math.abs(n.y-cy)>R)continue;fpVehicle(add,n);}
+  // BLUE PHONE: your own truck stands in the world while you are out driving something else
+  if(G.alt){const s=G.s,T=TRK,P=(f0,f1,l0,l1,z0,z1,c,top)=>{const fm=(f0+f1)/2,lm=(l0+l1)/2,c0=Math.cos(s.th),s0=Math.sin(s.th);add({cx:s.x+c0*fm-s0*lm,cy:s.y+s0*fm+c0*lm,ang:s.th,hl:(f1-f0)/2,hw:(l1-l0)/2},z0,z1,c,top);},p1=G.total?PAL.wreck:col(T.paint[0]);
+    for(const f of[T.L].concat(T.drives))for(const sd of[-1,1])P(f-1.7,f+1.7,sd*T.track-.6,sd*T.track+.6,0,3.4,PAL.tire);P(T.tail,T.cab,-1.9,1.9,1.5,3.6,PAL.frame);P(T.cab,T.bumper,-T.half,T.half,1.6,T.style==='sleeper'?12:10.5,p1,p1);P(T.cab+4.5,T.cab+5,-T.half+.4,T.half-.4,6.5,9.5,PAL.glass);}
   for(const p of PEDS)if(Math.abs(p.x-cx)<R&&Math.abs(p.y-cy)<R){const body=p.vest?(p.vest==='o'?PAL.vestO:PAL.vestY):col(p.shirt);
     add({cx:p.x,cy:p.y,ang:p.th,hl:.45,hw:.9},0,5.2,body);add({cx:p.x,cy:p.y,ang:p.th,hl:.4,hw:.4},5.2,6.1,p.hat?col(p.hat):col(p.hair));}
   for(const w of dstore().wrecks){if(w.run===G.runId||Math.abs(w.x-cx)>R||Math.abs(w.y-cy)>R)continue;add(box(w.x,w.y,w.th,w.tail,w.bumper,w.half),0,9,PAL.wreck);}
@@ -1874,6 +1877,7 @@ function fpBoxes(ctx,W,H,cam,boxes){
 }
 function fpScene(ctx,img,buf,W,H,cam,boxes){fpFloor(buf,W,H,cam);ctx.putImageData(img,0,0);fpHills(ctx,W,cam);fpBoxes(ctx,W,H,cam,boxes);}
 function render3D(){
+  if(G.alt){render3DAlt();return;}
   fpResize();const s=G.s,T=TRK,ca=Math.cos(s.th),sa=Math.sin(s.th),W=FP.W,H=FP.H,co=T.style==='cabover'||T.style==='yard';
   const eyeF=co?T.bumper-3:T.style==='yard'?T.cab+4.5:T.cab+3.6,eyeL=T.style==='yard'?-2.2:-1.8,sh=G.shake>0?(Math.random()-.5)*.03:0;
   const cam={x:s.x+ca*eyeF-sa*eyeL,y:s.y+sa*eyeF+ca*eyeL,z:(co?9.2:8.5)+(G.shake>0?(Math.random()-.5)*.3:0),yaw:s.th+(G.look||0)+sh,fov:78*DEG,hor:H*.4,maxD:900};
@@ -2734,6 +2738,46 @@ function gantryStrike(x,y,which){
 function drawOverDamage(){if(!HW||!HW.overRubble)return;for(const r of HW.overRubble){if(Math.abs(r.y-G.camY)>500)continue;speck(-6,r.y-30,48,r.y+30,.45);
   for(let x=-4;x<46;x+=7){fillOBB(x,r.y-23,.3,2,.6,PAL.frame);fillOBB(x+3,r.y+23,-.4,2,.6,PAL.frame);}}}
 
+// =====================================================================
+// BLUE PHONE: driver view for every ride. low seat and a center mirror in cars, handlebars on the bike,
+// BLUE PHONE: a high cab and a big mirror in the tow rigs, and a glass bubble cockpit in the helicopter that looks down as it climbs
+// =====================================================================
+function render3DAlt(){
+  fpResize();const n=G.alt,T=VT[n.type],W=FP.W,H=FP.H,L=fpL,ca=Math.cos(n.th),sa=Math.sin(n.th),heli=n.type==='heli',moto=n.type==='moto',big=!!TOW[n.type]||n.type==='box'||n.type==='amb';
+  const eyeF=heli?5.5:moto?-.5:big?T.len/2-4:T.len*.05,eyeL=heli||moto?0:-1.4,z=heli?(n.z||0)+5:moto?4.6:big?8:n.type==='sports'?3.2:n.type==='muscle'?3.6:4.4;
+  const sh=G.shake>0?(Math.random()-.5)*.03:0,tilt=heli?Math.min(H*.18,(n.z||0)*.5):0;
+  const cam={x:n.x+ca*eyeF-sa*eyeL,y:n.y+sa*eyeF+ca*eyeL,z,yaw:n.th+(G.look||0)+sh,fov:(heli?86:moto?84:76)*DEG,hor:H*.42-tilt,maxD:heli?1200:900};
+  FP.skip=n;const boxes=fpCollect(n.x,n.y,MAP.city?600:900);FP.skip=null;
+  fpScene(fpL,FP.img,FP.buf,W,H,cam,boxes);
+  const p1=n.paint&&n.paint[0]==='#'?n.paint:'#'+((n.c1&255).toString(16).padStart(2,'0'))+(((n.c1>>>8)&255).toString(16).padStart(2,'0'))+(((n.c1>>>16)&255).toString(16).padStart(2,'0'));
+  if(heli){
+    // BLUE PHONE: bubble canopy frame, instrument pod, rotor blur
+    L.strokeStyle='#3d3a35';L.lineWidth=Math.max(2,W*.012);L.beginPath();L.moveTo(W*.5,0);L.lineTo(W*.5,H*.22);L.stroke();
+    L.beginPath();L.moveTo(0,H*.62);L.quadraticCurveTo(W*.5,H*.5,W,H*.62);L.stroke();
+    L.fillStyle='#3d3a35';L.beginPath();L.moveTo(W*.3,H);L.lineTo(W*.36,H*.76);L.lineTo(W*.64,H*.76);L.lineTo(W*.7,H);L.closePath();L.fill();
+    L.fillStyle='#2a62b0';L.fillRect(W*.38,H*.78,W*.24,H*.012);
+    for(let k=0;k<4;k++){L.fillStyle=k%2?'#9fe0a8':'#f2c230';L.fillRect(W*(.4+k*.05),H*.82,W*.03,H*.03);}
+    if(n.on){L.strokeStyle='rgba(60,58,53,.22)';L.lineWidth=W*.02;const r=n.rot||0;for(const q of[r,r+Math.PI/2]){L.beginPath();L.moveTo(W*.5-Math.cos(q)*W*.8,-H*.05+Math.sin(q)*H*.05);L.lineTo(W*.5+Math.cos(q)*W*.8,-H*.05-Math.sin(q)*H*.05);L.stroke();}}
+    L.fillStyle='#3d3a35';L.font='700 '+Math.round(W*.045)+'px sans-serif';L.textAlign='center';L.fillStyle='#2a62b0';L.fillText(Math.round(n.z||0)+' FT',W*.5,H*.745);}
+  else if(moto){L.fillStyle='#3d3a35';L.fillRect(W*.2,H*.86,W*.6,H*.025);L.fillRect(W*.18,H*.84,W*.06,H*.06);L.fillRect(W*.76,H*.84,W*.06,H*.06);L.fillStyle=p1;L.beginPath();L.ellipse(W*.5,H*.98,W*.13,H*.1,0,0,Math.PI*2);L.fill();
+    L.fillStyle='#2a62b0';L.fillRect(W*.47,H*.9,W*.06,H*.02);}
+  else{
+    const hoodY=big?H*.7:H*.66,dashY=big?H*.72:H*.7;
+    L.fillStyle=n.dead?'#5c574f':p1;L.beginPath();L.moveTo(W*.02,dashY+H*.02);L.quadraticCurveTo(W*.5,hoodY-H*(big?.0:.04),W*.98,dashY+H*.02);L.lineTo(W*.98,dashY+H*.05);L.lineTo(W*.02,dashY+H*.05);L.closePath();L.fill();
+    if(n.type==='muscle'||n.type==='sports'){L.fillStyle='rgba(42,98,176,.85)';L.fillRect(W*.44,hoodY+H*.01,W*.03,dashY-hoodY+H*.02);L.fillRect(W*.53,hoodY+H*.01,W*.03,dashY-hoodY+H*.02);}
+    L.fillStyle='#4a4741';L.fillRect(0,dashY+H*.04,W,H);L.fillStyle='#2a62b0';L.fillRect(W*.3,dashY+H*.06,W*.4,H*.008);
+    L.strokeStyle='#2e3338';L.lineWidth=W*.03;L.beginPath();L.arc(W*.36,H*1.02,W*.17,Math.PI*1.12,Math.PI*1.88);L.stroke();
+    L.fillStyle='#5c5a54';L.beginPath();L.moveTo(0,0);L.lineTo(W*.07,0);L.lineTo(W*.14,dashY);L.lineTo(0,dashY);L.closePath();L.fill();
+    L.beginPath();L.moveTo(W,0);L.lineTo(W*.93,0);L.lineTo(W*.86,dashY);L.lineTo(W,dashY);L.closePath();L.fill();L.fillRect(0,0,W,H*.035);
+    // BLUE PHONE: center rear view mirror
+    const mW=FP.mW,mH=Math.round(FP.mH*.6),mc={x:n.x-ca*T.len*.2,y:n.y-sa*T.len*.2,z:z+.2,yaw:n.th+Math.PI,fov:46*DEG,hor:mH*.45,maxD:500};
+    if(!FP.cmImg||FP.cmImg.width!==mW||FP.cmImg.height!==mH){FP.cmC=document.createElement('canvas');FP.cmC.width=mW;FP.cmC.height=mH;FP.cmX=FP.cmC.getContext('2d');FP.cmImg=FP.cmX.createImageData(mW,mH);FP.cmBuf=new Uint32Array(FP.cmImg.data.buffer);}
+    FP.skip=n;fpScene(FP.cmX,FP.cmImg,FP.cmBuf,mW,mH,mc,boxes);FP.skip=null;
+    const mx=W*.5-mW/2,my=H*.19;L.fillStyle='#2e3338';L.fillRect(mx-2,my-2,mW+4,mH+4);L.save();L.translate(mx+mW,my);L.scale(-1,1);L.drawImage(FP.cmC,0,0);L.restore();
+    if(n.siren){const ph=Math.floor(now()*6)%2;L.fillStyle=ph?'rgba(255,42,31,.22)':'rgba(47,107,255,.22)';L.fillRect(0,0,W,H*.3);}}
+  fpX.imageSmoothingEnabled=false;fpX.drawImage(fpLo,0,0,fpC.width,fpC.height);
+}
+
 function updateSink(name,si,dt,lf){
   const v=G.sink[name]||0;
   if(SURF[si].soft){const slow=Math.abs(G.s.v)<1.5?1.3:.6;G.sink[name]=Math.min(1,v+dt*(.1+.3*lf)*slow);}
@@ -3121,7 +3165,7 @@ function drawTarget(){
 function drawCones(){for(const c of cones){if(c.knock)fillOBB(c.x,c.y,c.ang,1,.5,PAL.cone);else{fillOBB(c.x,c.y,0,.8,.8,PAL.cone);fillOBB(c.x,c.y,0,.3,.3,PAL.cone2);}}}
 
 function render(){
-  const drv=G.cam==='driver'&&!G.alt;if(drv!==FP.shown){FP.shown=drv;fpC.style.display=drv?'block':'none';view.style.display=drv?'none':'block';}
+  const drv=G.cam==='driver';if(drv!==FP.shown){FP.shown=drv;fpC.style.display=drv?'block':'none';view.style.display=drv?'none':'block';}
   if(drv){render3D();return;}
   // RED PHONE: camera holds the whole rig in the open space between the top bar and the controls
   const s=G.s,ch=chain(s);let tx,ty;
