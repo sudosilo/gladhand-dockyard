@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>gladhand dockyard v27</title>
+<title>gladhand dockyard v28</title>
 <!--
 RED PHONE: trailer backing sim v5
 RED PHONE: v4 written on the Red phone in chat with Claude Opus 5.5, Oct 11 2026 (single van, dock yard, inspection, air lines, magnetic coupling)
@@ -2206,7 +2206,8 @@ function breach(o,b,E,dirA){
   const depth=clamp(2+E/7,2,16),half=clamp(b.hw+1.2,3,6.5);
   const act=L.filter(h=>(T-h.t)/repairSecs(h.d)<.5);
   let best=null,bd=1e9;for(const h of act){const qx=clamp(px,h.x0,h.x1),qy=clamp(py,h.y0,h.y1),d=Math.hypot(px-qx,py-qy);if(d<bd){bd=d;best=h;}}
-  if(best&&bd<9){const h=best;
+  let ret=null;
+  if(best&&bd<9){const h=best;ret=h;
     if(h.nx>0)h.x1=Math.min(x1,Math.max(h.x1,px)+depth);if(h.nx<0)h.x0=Math.max(x0,Math.min(h.x0,px)-depth);
     if(h.ny>0)h.y1=Math.min(y1,Math.max(h.y1,py)+depth);if(h.ny<0)h.y0=Math.max(y0,Math.min(h.y0,py)-depth);
     if(h.nx){h.y0=Math.max(y0,Math.min(h.y0,py-half));h.y1=Math.min(y1,Math.max(h.y1,py+half));}else{h.x0=Math.max(x0,Math.min(h.x0,px-half));h.x1=Math.min(x1,Math.max(h.x1,px+half));}
@@ -2216,11 +2217,11 @@ function breach(o,b,E,dirA){
     else if(m===dr)h={x0:Math.max(x0,x1-depth),x1,y0:Math.max(y0,py-half),y1:Math.min(y1,py+half),nx:-1,ny:0};
     else if(m===dt)h={x0:Math.max(x0,px-half),x1:Math.min(x1,px+half),y0,y1:Math.min(y1,y0+depth),nx:0,ny:1};
     else h={x0:Math.max(x0,px-half),x1:Math.min(x1,px+half),y0:Math.max(y0,y1-depth),y1,nx:0,ny:-1};
-    h.t=T;h.d=Math.round(E*10)/10;L.push(h);if(L.length>16)L.shift();
+    h.t=T;h.d=Math.round(E*10)/10;L.push(h);ret=h;if(L.length>16)L.shift();
     if(nDist({x:px,y:py})<200)setTimeout(()=>msg('Busted through the '+o.label,2.2),300);}
   for(const h of L)for(const k of['x0','x1','y0','y1'])h[k]=Math.round(h[k]*10)/10;
   st.cost+=Math.round((BASE$[o.type]||800)*(.5+E/15));G.dirty=true;
-  return true;
+  return ret||true;
 }
 function drawHoles(){const st=dstore();if(!st.holes)return;const T=tnow(),X0=G.camX-300,X1=G.camX+300,Y0=G.camY-460,Y1=G.camY+460;
   for(const id in st.holes){const o=OBI[id];if(!o||o.cx+o.hl<X0||o.cx-o.hl>X1||o.cy+o.hw<Y0||o.cy-o.hw>Y1)continue;
@@ -2416,7 +2417,7 @@ function explode(x,y,power,src){
   {const R=10*Math.sqrt(power),st2=dstore();st2.wallHits=st2.wallHits||[];
     for(const o of OBST){if(o.hp<9999||Math.abs(o.cx-x)>o.hl+R+2||Math.abs(o.cy-y)>o.hw+R+2)continue;const qx=clamp(x,o.cx-o.hl,o.cx+o.hl),qy=clamp(y,o.cy-o.hw,o.cy+o.hw),d=Math.hypot(qx-x,qy-y);if(d>R)continue;
       const a=d>.3?Math.atan2(y-qy,x-qx):(Math.abs(x-o.cx)/o.hl>Math.abs(y-o.cy)/o.hw?(x<o.cx?Math.PI:0):(y<o.cy?-Math.PI/2:Math.PI/2));
-      if(BREACH[o.type])breach(o,{cx:qx-Math.cos(a)*2,cy:qy-Math.sin(a)*2,ang:a+Math.PI,hl:2.5,hw:2.5},45*power,a+Math.PI);
+      if(BREACH[o.type]){const hh=breach(o,{cx:qx-Math.cos(a)*2,cy:qy-Math.sin(a)*2,ang:a+Math.PI,hl:2.5,hw:2.5},45*power,a+Math.PI);if(hh&&hh!==true&&hh.top==null){hh.top=Math.round(6+power*5);hh.sill=1;}}
       st2.wallHits.push({x:Math.round(qx*10)/10,y:Math.round(qy*10)/10,a:Math.round(a*100)/100,r:Math.round((4+power*3)*10)/10,t:Math.round(tnow())});addMark(qx,qy,30*power,o);}
     if(st2.wallHits.length>300)st2.wallHits.splice(0,st2.wallHits.length-300);}
   for(const o of OBST){if(o.hp>=9999||isBroken(o)||o.type==='pump')continue;const d=Math.hypot(o.cx-x,o.cy-y);if(d<30)damageOb(o,(1-d/30)*40*power,o.cx,o.cy,Math.atan2(o.cy-y,o.cx-x));}
@@ -2859,7 +2860,7 @@ function impact(s,hn,ho){
     for(const p of PEDS){const d=Math.hypot(p.x-x,p.y-y);if(d<30&&p.dodge<=0){p.dodge=.6;p.dvx=(p.x-x)/(d||1)*16;p.dvy=(p.y-y)/(d||1)*16;}}
     return;}
   // BLUE PHONE: a cannon shell punches a hole in anything big, then goes off
-  if(ho&&BREACH[ho.type])breach(ho,{cx:x,cy:y,ang:s.a,hl:3,hw:3},70,s.a);
+  if(ho&&BREACH[ho.type]){const hh=breach(ho,{cx:x,cy:y,ang:s.a,hl:3,hw:3},70,s.a);if(hh&&hh!==true&&hh.top==null){hh.top=10;hh.sill=1;}}
   if(hn){const[m,b]=hn;npcDamage(m,x,y,120,b);}
   explode(x,y,.75,{label:'shell'});
 }
@@ -2936,7 +2937,8 @@ function fpHoleBoxes(add,o,L,h,c,top){
     const a=Math.max(r.x0,q.x0),b=Math.min(r.x1,q.x1);if(q.y0>r.y0)N.push({x0:a,x1:b,y0:r.y0,y1:q.y0});if(q.y1<r.y1)N.push({x0:a,x1:b,y0:q.y1,y1:r.y1});}R=N;}
   for(const r of R)if(r.x1-r.x0>.2&&r.y1-r.y0>.2)add({cx:(r.x0+r.x1)/2,cy:(r.y0+r.y1)/2,ang:0,hl:(r.x1-r.x0)/2,hw:(r.y1-r.y0)/2},0,h,c,top);
   for(const q of L){const b={cx:(q.x0+q.x1)/2,cy:(q.y0+q.y1)/2,ang:0,hl:(q.x1-q.x0)/2,hw:(q.y1-q.y0)/2};
-    if(h>15)add(b,13,h,c,top);add(b,0,.5,PAL.rubble2);
+    const tp=q.top||13;if(h>tp+.5)add(b,tp,h,c,top);if(q.sill)add(b,0,q.sill,PAL.rubble2);else add(b,0,.5,PAL.rubble2);
+    if(q.top)for(const e of[[q.x0,q.y0],[q.x1,q.y1]]){const ex=Math.abs(q.nx)?(q.nx>0?q.x0:q.x1):e[0],ey=Math.abs(q.ny)?(q.ny>0?q.y0:q.y1):e[1];add({cx:ex,cy:ey,ang:0,hl:Math.abs(q.ny)?.6:.25,hw:Math.abs(q.nx)?.6:.25},q.sill||0,tp,PAL.scorch);}
     for(let k=0;k<4;k++){const hx=hsh(Math.round(q.x0*3)+k,Math.round(q.y0*5)),fx=q.x0+(hx%10)/10*(q.x1-q.x0),fy=q.y0+((hx>>4)%10)/10*(q.y1-q.y0);add({cx:fx,cy:fy,ang:hx,hl:.9,hw:.7},0,1.4,k%2?PAL.concrete2:PAL.rubble);}}
 }
 function fpDecals(add,cx,cy){const st=dstore(),T=tnow(),R=150;let n=0;
@@ -2975,7 +2977,7 @@ function engInit(){const a=ac();if(!a||ENG)return;
   const o1=a.createOscillator(),g1=a.createGain();o1.type='sawtooth';o1.frequency.value=40;g1.gain.value=.6;o1.connect(g1);g1.connect(lp);
   const o2=a.createOscillator(),g2=a.createGain();o2.type='square';o2.frequency.value=20;g2.gain.value=.3;o2.connect(g2);g2.connect(lp);
   const ns=a.createBufferSource();ns.buffer=noiseBuf(a,2);ns.loop=true;const bp=a.createBiquadFilter();bp.type='bandpass';bp.frequency.value=200;bp.Q.value=.8;const ng=a.createGain();ng.gain.value=0;ns.connect(bp);bp.connect(ng);ng.connect(am);
-  const lfo=a.createOscillator(),ld=a.createGain();lfo.type='square';lfo.frequency.value=10;ld.gain.value=0;lfo.connect(ld);ld.connect(am.gain);
+  const lfo=a.createOscillator(),ld=a.createGain();lfo.type='sine';lfo.frequency.value=10;ld.gain.value=0;lfo.connect(ld);ld.connect(am.gain);
   o1.start();o2.start();ns.start();lfo.start();ENG={a,out,am,lp,o1,o2,g1,g2,ns,bp,ng,lfo,ld,kind:''};}
 function engSet(p,v,k){const t=ENG.a.currentTime;p.setTargetAtTime(v,t,k||.06);}
 function engineTick(){
@@ -2986,21 +2988,21 @@ function engineTick(){
     top=(DRV[n.type]||DRV.sedan).top;if(n.dead)on=false;if(kind==='heli')on=!!n.on||(n.spin||0)>2;}
   else{spd=Math.abs(G.s.v);kind='semi';top=MAP.proc?100:60;if(G.total)on=false;}
   const r=Math.min(1,spd/top),th=gas?1:0;
-  if(E.kind!==kind){E.kind=kind;E.o1.type=kind==='heli'?'sine':kind==='muscle'?'square':'sawtooth';E.o2.type=kind==='heli'?'sine':'square';}
+  if(E.kind!==kind){E.kind=kind;E.lfo.type=kind==='heli'?'square':'sine';E.o1.type=kind==='heli'?'sine':kind==='muscle'?'square':'sawtooth';E.o2.type=kind==='heli'?'sine':'square';}
   let f=40,lp=600,v1=.6,v2=.3,nv=0,nbp=200,lr=10,ldp=0,vol=.1;
   switch(kind){
-    case 'semi':case 'diesel':f=30+r*62+th*12;lp=320+th*380+r*200;lr=f/2;ldp=.32;nv=.04+th*.05;nbp=2200;vol=.11+th*.04;break;
-    case 'tank':f=26+r*30+th*8;lp=260+th*180;v2=.5;nv=.35;nbp=700+r*500;lr=1.5+spd*1.6;ldp=spd>1?.6:.15;vol=.13+th*.03;break;
+    case 'semi':case 'diesel':f=30+r*62+th*12;lp=300+th*300+r*150;lr=7+r*6;ldp=.18;nv=.05;nbp=180;vol=.11+th*.04;break;
+    case 'tank':f=26+r*30+th*8;lp=240+th*160;v2=.5;nv=.3;nbp=160;lr=3+r*5;ldp=.15;vol=.13+th*.03;break;
     case 'heli':{const spin=G.alt.on?28:(G.alt.spin||0);f=780+r*240+(G.alt.z||0)*.8;v1=.05;v2=.02;lp=4000;nv=1.1;nbp=110;lr=spin*.62;ldp=.92;vol=spin>0?.2*Math.min(1,spin/28):0;break;}
-    case 'sports':f=72+r*360+th*40;lp=1500+th*800;v2=.2;lr=f/3;ldp=.1;vol=.07+th*.03;break;
-    case 'muscle':f=44+r*190+th*24;lp=760+th*400;v2=.45;lr=6+r*14;ldp=.35;vol=.085+th*.03;break;
-    case 'moto':f=95+r*430+th*50;lp=2200;v2=.15;lr=f/2;ldp=.15;vol=.06+th*.03;break;
-    default:f=55+r*170+th*20;lp=900+th*300;lr=f/3;ldp=.1;vol=.055+th*.02;}
+    case 'sports':f=72+r*360+th*40;lp=1300+th*600;v2=.2;ldp=0;vol=.07+th*.03;break;
+    case 'muscle':f=44+r*190+th*24;lp=700+th*350;v2=.45;lr=5+r*8;ldp=.2;vol=.085+th*.03;break;
+    case 'moto':f=95+r*430+th*50;lp=1800;v2=.15;ldp=0;vol=.06+th*.03;break;
+    default:f=55+r*170+th*20;lp=800+th*250;ldp=0;vol=.055+th*.02;}
   engSet(E.o1.frequency,f);engSet(E.o2.frequency,f/2);engSet(E.lp.frequency,lp);engSet(E.g1.gain,v1);engSet(E.g2.gain,v2);engSet(E.ng.gain,nv);engSet(E.bp.frequency,nbp);
   engSet(E.lfo.frequency,Math.max(.5,lr));engSet(E.ld.gain,ldp);engSet(E.am.gain,1-ldp*.5);engSet(E.out.gain,on?vol:0,.12);
 }
 // BLUE PHONE: tire screech from filtered noise instead of a beep
-function squeal(k){if(now()<(G.sqU||0))return;G.sqU=now()+.16;const a=sndOn&&ac();if(!a)return;
+function squeal(k){return;if(now()<(G.sqU||0))return;G.sqU=now()+.16;const a=sndOn&&ac();if(!a)return;
   const src=a.createBufferSource(),bf=a.createBiquadFilter(),g=a.createGain(),t=a.currentTime;if(!G.sqBuf)G.sqBuf=noiseBuf(a,.4);src.buffer=G.sqBuf;bf.type='bandpass';bf.frequency.value=1400+Math.random()*300;bf.Q.value=6;
   g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(.05*k,t+.03);g.gain.exponentialRampToValueAtTime(.0001,t+.2);src.connect(bf);bf.connect(g);g.connect(a.destination);src.start(t);src.stop(t+.22);}
 
