@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>gladhand dockyard v25</title>
+<title>gladhand dockyard v26</title>
 <!--
 RED PHONE: trailer backing sim v5
 RED PHONE: v4 written on the Red phone in chat with Claude Opus 5.5, Oct 11 2026 (single van, dock yard, inspection, air lines, magnetic coupling)
@@ -846,7 +846,8 @@ function findHit(s){
 let AC=null,sndOn=true,beepT=0;
 try{sndOn=localStorage.getItem('tbs-snd')!=='0';}catch(e){}
 function ac(){if(!AC){try{AC=new(window.AudioContext||window.webkitAudioContext)();}catch(e){AC=null;}}if(AC&&AC.state==='suspended')AC.resume();return AC;}
-function tone(f,dur,type,vol,f2){const a=sndOn&&ac();if(!a)return;const o=a.createOscillator(),g=a.createGain(),t=a.currentTime;o.type=type||'square';o.frequency.setValueAtTime(f,t);if(f2)o.frequency.linearRampToValueAtTime(f2,t+dur);g.gain.setValueAtTime(vol||.06,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+dur+.02);}
+function tone(f,dur,type,vol,f2){if(type==='triangle')return;const a=sndOn&&ac();if(!a)return;   // BLUE PHONE: chimes are off
+const o=a.createOscillator(),g=a.createGain(),t=a.currentTime;o.type=type||'square';o.frequency.setValueAtTime(f,t);if(f2)o.frequency.linearRampToValueAtTime(f2,t+dur);g.gain.setValueAtTime(vol||.06,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+dur+.02);}
 function hiss(dur,vol){const a=sndOn&&ac();if(!a)return;const n=Math.floor(a.sampleRate*dur),bf=a.createBuffer(1,n,a.sampleRate),d=bf.getChannelData(0);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*(1-i/n);
   const src=a.createBufferSource(),f=a.createBiquadFilter(),g=a.createGain();f.type='highpass';f.frequency.value=2500;g.gain.value=vol||.12;src.buffer=bf;src.connect(f);f.connect(g);g.connect(a.destination);src.start();}
 function horn(){const a=sndOn&&ac();if(!a)return;const t=a.currentTime,g=a.createGain(),l=a.createOscillator(),lg=a.createGain();
@@ -1643,7 +1644,7 @@ function hwTick(dt){
   if(!G.done&&!G.total){HW.evT-=dt;if(HW.evT<=0){hwEvent();HW.evT=rnd(14,26)*Math.max(.45,1-HW.miles/40);}}
   if(HW.gust&&now()<HW.gust.until){const k=Math.sin((HW.gust.until-now())/HW.gust.dur*Math.PI),lf=U[0].load/Math.max(1,U[0].maxLoad),push=HW.gust.f*k*(1.4-lf)*dt;
     s.x+=push;if(s.coupled)for(let i=0;i<s.ph.length;i++)s.ph[i]+=push*.004*(i+1);}
-  HW.sirT-=dt;if(HW.sirT<=0){HW.sirT=.42;for(const n of NPCS)if(n.siren&&!n.dead){const d=nDist(n);if(d<900){HW.sirHi=!HW.sirHi;tone(HW.sirHi?960:740,.4,'triangle',.05*(1-d/900));}break;}}
+  HW.sirT-=dt;if(HW.sirT<=0){HW.sirT=.42;for(const n of NPCS)if(n.siren&&!n.dead){const d=nDist(n);if(d<900){HW.sirHi=!HW.sirHi;tone(HW.sirHi?960:740,.4,'sine',.05*(1-d/900));}break;}}
   for(const n of NPCS)if(n.siren&&!n.dead){const behind=n.y>G.pv.y1&&n.y-T_LEN(n)/2-G.pv.y1<140,inBand=Math.abs(n.x-(G.pv.x0+G.pv.x1)/2)<8;
     if(behind&&inBand){HW.ambT+=dt;if(HW.ambT>3){penalize('amb',100,'Yield to the ambulance. Move right',8);HW.ambT=0;}}}
   for(const p of HW.police)if(!p.done&&G.pv.y0<p.y&&G.pv.y1>p.y){p.done=true;if(G.pv.x1>33&&pmph>45)penalize('mo',80,'Move over for the stopped police car',3);}
@@ -2138,7 +2139,7 @@ function cityTick(dt){
   for(const o of OBST){if(Math.abs(o.cx-G.camX)>300||Math.abs(o.cy-G.camY)>420)continue;
     if(o.type==='hydrant'&&isBroken(o)){for(let k=0;k<3;k++)parts.push({x:o.cx+rnd(-1,1),y:o.cy+rnd(-1,1),vx:rnd(-9,9),vy:rnd(-9,9),life:rnd(.5,1.1),c:Math.random()<.5?PAL.wet:PAL.signW});}
     if(o.type==='tpole'&&isBroken(o)){const r=st.obs[o.id],fa=r.fa||0;if(T-r.t<120&&Math.random()<.35){const tx=o.cx+Math.cos(fa)*27,ty=o.cy+Math.sin(fa)*27;
-      for(let k=0;k<3;k++)parts.push({x:tx,y:ty,vx:rnd(-14,14),vy:rnd(-14,14),life:rnd(.15,.4),c:Math.random()<.5?PAL.amber:PAL.signW});igniteNear(tx,ty,10);if(Math.random()<.08&&Math.hypot(tx-s.x,ty-s.y)<160)tone(1800+Math.random()*900,.05,'square',.03);}}}
+      for(let k=0;k<3;k++)parts.push({x:tx,y:ty,vx:rnd(-14,14),vy:rnd(-14,14),life:rnd(.15,.4),c:Math.random()<.5?PAL.amber:PAL.signW});igniteNear(tx,ty,10);}}}
   CITY.potT-=dt;if(CITY.potT<=0&&mph>3){const ax=s.x+Math.cos(s.th)*TRK.L,ay=s.y+Math.sin(s.th)*TRK.L;
     for(const o of CITY.down||[]){if(o.type!=='tpole')continue;const r=st.obs[o.id];if(!r)continue;const fa=r.fa||0,dx=ax-o.cx,dy=ay-o.cy,u=dx*Math.cos(fa)+dy*Math.sin(fa),v=-dx*Math.sin(fa)+dy*Math.cos(fa);
       if(u>0&&u<30&&Math.abs(v)<4){G.shake=Math.max(G.shake,.25);tone(55,.15,'square',.1,35);CITY.potT=.6;break;}}}
@@ -2394,7 +2395,6 @@ function heliUpdate(n,dt,gas,brk){
   if(n.z>2)n.wasUp=true;
   if(n.z===0){n.v=0;if(!gas)n.on=false;if(n.wasUp){n.wasUp=false;if(onFlat(n))msg('Landed on the flatbed. Hit the horn to hop out and strap it down',3.5);}}
   n.rot=(n.rot||0)+dt*(n.on?28:Math.max(0,(n.spin=(n.spin||0)*Math.pow(.3,dt))));if(n.on)n.spin=28;
-  if(n.on){G.rotT=(G.rotT||0)-dt;if(G.rotT<=0){G.rotT=.075;tone(52,.05,'square',.04,40);}}
   n.brake=brk;
 }
 // BLUE PHONE: gas pump explosion. fireball, shockwave that throws cars and people, chain reaction through the other pumps,
@@ -2612,7 +2612,7 @@ function rideHorn(n){const t=n.type;
   if(TOW[t]||t==='box'){horn();return;}
   tone(415,.45,'square',.05);tone(500,.45,'square',.05);
 }
-function sirenTick(dt){const n=G.alt;if(!n||!n.siren)return;G.sirT=(G.sirT||0)-dt;if(G.sirT<=0){G.sirT=.45;G.sirHi=!G.sirHi;tone(G.sirHi?980:720,.42,'triangle',.05);}
+function sirenTick(dt){const n=G.alt;if(!n||!n.siren)return;G.sirT=(G.sirT||0)-dt;if(G.sirT<=0){G.sirT=.45;G.sirHi=!G.sirHi;tone(G.sirHi?980:720,.42,'sine',.05);}
   // BLUE PHONE: traffic ahead of the lights slows and lets you by
   for(const m of NPCS)if(m.kind==='car'&&!m.dead&&Math.hypot(m.x-n.x,m.y-n.y)<140){const dx=m.x-n.x,dy=m.y-n.y;if(dx*Math.cos(n.th)+dy*Math.sin(n.th)>0)m.v=Math.min(m.v,6);}}
 
@@ -2847,7 +2847,6 @@ function impact(s,hn,ho){
     for(let k=0;k<4&&parts.length<500;k++)parts.push({x,y,vx:rnd(-12,12),vy:rnd(-12,12),life:rnd(.08,.25),c:k%2?PAL.amber:PAL.signW});
     if(hn){const[m,b]=hn;npcDamage(m,x,y,3.5,b);if(m.kind!=='rig')nImpulse(m,s.vx/900*.6,s.vy/900*.6,false);if(m.dead&&!m.burnt){m.burnt=1;if(Math.random()<.35)explode(m.x,m.y,.5,{label:VT[m.type]?VT[m.type].label:'car'});}}
     else if(ho){if(ho.hp<9999)damageOb(ho,3,x,y,s.a);else if(Math.random()<.3)spawnChunks(x,y,-s.vx,-s.vy,2,(MAT[ho.type]||['concrete2','rubble']).map(q=>PAL[q]),.6);}
-    if(Math.hypot(x-G.camX,y-G.camY)<300&&Math.random()<.3)tone(2400+Math.random()*1200,.03,'square',.02);
     for(const p of PEDS){const d=Math.hypot(p.x-x,p.y-y);if(d<30&&p.dodge<=0){p.dodge=.6;p.dvx=(p.x-x)/(d||1)*16;p.dvy=(p.y-y)/(d||1)*16;}}
     return;}
   // BLUE PHONE: a cannon shell punches a hole in anything big, then goes off
@@ -2898,7 +2897,6 @@ function skidAt(x,y,a,len,w,tread){const si=surfAt(x,y),c=tread?shadeU(groundAt(
   SKIDS.push({x,y,a,l:len/2,w:w/2,c,t:tread?1:0});if(SKIDS.length>5000)SKIDS.splice(0,SKIDS.length-5000);}
 function drawSkids(){const X=G.camX,Y=G.camY;for(const k of SKIDS){if(Math.abs(k.x-X)>300||Math.abs(k.y-Y)>460)continue;fillOBB(k.x,k.y,k.a,k.l,k.w,k.c);
   if(k.t)fillOBB(k.x,k.y,k.a,.18,k.w,shadeU(k.c,.85));}}
-function squeal(k){G.sqT=(G.sqT||0)-1;if(now()<(G.sqU||0))return;G.sqU=now()+.12;tone(1300+Math.random()*500,.12,'sawtooth',.012*k,900);}
 // BLUE PHONE: wheel marks for a body at x,y heading a, laid every so often along its travel
 function wheelMarks(n,a,mv,which,dist){
   n.skA=(n.skA||0)+dist;if(n.skA<.6)return;const ln=n.skA+.5;n.skA=0;const T=VT[n.type]||{len:16,wid:6.6},L=T.len/2*.62,Wd=T.wid/2-.6,c=Math.cos(n.th),s=Math.sin(n.th);
@@ -2949,6 +2947,49 @@ function fpParts(ctx,W,H,cam){
     const z=smk?4+(1.2-p.life)*14:fire?1+(Math.abs(Math.round(p.x*7+p.y*3))%6)+(1-p.life)*5:1+(1-p.life)*3;draw(p.x,p.y,z,smk?3:fire?1.4:.7,p.c);}
   for(const k of chunks)draw(k.x,k.y,k.z+.3,k.s*1.6,k.c);
 }
+
+// =====================================================================
+// BLUE PHONE: engine sound. one continuous voice that follows whatever you are driving:
+// BLUE PHONE: diesel clatter for the semi and work trucks, a low rumble with track clank for the tank,
+// BLUE PHONE: rotor thump with turbine whine for the helicopter, revs for the cars and the bike
+// =====================================================================
+let ENG=null;
+function noiseBuf(a,sec){const n=Math.floor(a.sampleRate*sec),b=a.createBuffer(1,n,a.sampleRate),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1;return b;}
+function engInit(){const a=ac();if(!a||ENG)return;
+  const out=a.createGain();out.gain.value=0;out.connect(a.destination);
+  const am=a.createGain();am.gain.value=1;am.connect(out);
+  const lp=a.createBiquadFilter();lp.type='lowpass';lp.frequency.value=600;lp.connect(am);
+  const o1=a.createOscillator(),g1=a.createGain();o1.type='sawtooth';o1.frequency.value=40;g1.gain.value=.6;o1.connect(g1);g1.connect(lp);
+  const o2=a.createOscillator(),g2=a.createGain();o2.type='square';o2.frequency.value=20;g2.gain.value=.3;o2.connect(g2);g2.connect(lp);
+  const ns=a.createBufferSource();ns.buffer=noiseBuf(a,2);ns.loop=true;const bp=a.createBiquadFilter();bp.type='bandpass';bp.frequency.value=200;bp.Q.value=.8;const ng=a.createGain();ng.gain.value=0;ns.connect(bp);bp.connect(ng);ng.connect(am);
+  const lfo=a.createOscillator(),ld=a.createGain();lfo.type='square';lfo.frequency.value=10;ld.gain.value=0;lfo.connect(ld);ld.connect(am.gain);
+  o1.start();o2.start();ns.start();lfo.start();ENG={a,out,am,lp,o1,o2,g1,g2,ns,bp,ng,lfo,ld,kind:''};}
+function engSet(p,v,k){const t=ENG.a.currentTime;p.setTargetAtTime(v,t,k||.06);}
+function engineTick(){
+  if(!sndOn||!running){if(ENG)engSet(ENG.out.gain,0,.05);return;}
+  if(!ENG){if(!AC||AC.state!=='running')return;engInit();if(!ENG)return;}
+  const E=ENG,gas=G.gas||keys.gas;let kind,spd,top,on=true;
+  if(G.alt){const n=G.alt;spd=Math.abs(n.v);kind=n.type==='heli'?'heli':n.type==='tank'?'tank':n.type==='moto'?'moto':n.type==='sports'?'sports':n.type==='muscle'?'muscle':(TOW[n.type]||n.type==='box'||n.type==='amb')?'diesel':'car';
+    top=(DRV[n.type]||DRV.sedan).top;if(n.dead)on=false;if(kind==='heli')on=!!n.on||(n.spin||0)>2;}
+  else{spd=Math.abs(G.s.v);kind='semi';top=MAP.proc?100:60;if(G.total)on=false;}
+  const r=Math.min(1,spd/top),th=gas?1:0;
+  if(E.kind!==kind){E.kind=kind;E.o1.type=kind==='heli'?'sine':kind==='muscle'?'square':'sawtooth';E.o2.type=kind==='heli'?'sine':'square';}
+  let f=40,lp=600,v1=.6,v2=.3,nv=0,nbp=200,lr=10,ldp=0,vol=.1;
+  switch(kind){
+    case 'semi':case 'diesel':f=30+r*62+th*12;lp=320+th*380+r*200;lr=f/2;ldp=.32;nv=.04+th*.05;nbp=2200;vol=.11+th*.04;break;
+    case 'tank':f=26+r*30+th*8;lp=260+th*180;v2=.5;nv=.35;nbp=700+r*500;lr=1.5+spd*1.6;ldp=spd>1?.6:.15;vol=.13+th*.03;break;
+    case 'heli':{const spin=G.alt.on?28:(G.alt.spin||0);f=780+r*240+(G.alt.z||0)*.8;v1=.05;v2=.02;lp=4000;nv=1.1;nbp=110;lr=spin*.62;ldp=.92;vol=spin>0?.2*Math.min(1,spin/28):0;break;}
+    case 'sports':f=72+r*360+th*40;lp=1500+th*800;v2=.2;lr=f/3;ldp=.1;vol=.07+th*.03;break;
+    case 'muscle':f=44+r*190+th*24;lp=760+th*400;v2=.45;lr=6+r*14;ldp=.35;vol=.085+th*.03;break;
+    case 'moto':f=95+r*430+th*50;lp=2200;v2=.15;lr=f/2;ldp=.15;vol=.06+th*.03;break;
+    default:f=55+r*170+th*20;lp=900+th*300;lr=f/3;ldp=.1;vol=.055+th*.02;}
+  engSet(E.o1.frequency,f);engSet(E.o2.frequency,f/2);engSet(E.lp.frequency,lp);engSet(E.g1.gain,v1);engSet(E.g2.gain,v2);engSet(E.ng.gain,nv);engSet(E.bp.frequency,nbp);
+  engSet(E.lfo.frequency,Math.max(.5,lr));engSet(E.ld.gain,ldp);engSet(E.am.gain,1-ldp*.5);engSet(E.out.gain,on?vol:0,.12);
+}
+// BLUE PHONE: tire screech from filtered noise instead of a beep
+function squeal(k){if(now()<(G.sqU||0))return;G.sqU=now()+.16;const a=sndOn&&ac();if(!a)return;
+  const src=a.createBufferSource(),bf=a.createBiquadFilter(),g=a.createGain(),t=a.currentTime;if(!G.sqBuf)G.sqBuf=noiseBuf(a,.4);src.buffer=G.sqBuf;bf.type='bandpass';bf.frequency.value=1400+Math.random()*300;bf.Q.value=6;
+  g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(.05*k,t+.03);g.gain.exponentialRampToValueAtTime(.0001,t+.2);src.connect(bf);bf.connect(g);g.connect(a.destination);src.start(t);src.stop(t+.22);}
 
 function updateSink(name,si,dt,lf){
   const v=G.sink[name]||0;
@@ -3713,6 +3754,7 @@ function frame(ts){
   const dt=Math.min(.05,last?(ts-last)/1000:.016);last=ts;
   if(running&&!$('rig').classList.contains('on')){update(dt);render();hud(dt);}
   else if(running){render();hud(dt);}
+  engineTick();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
