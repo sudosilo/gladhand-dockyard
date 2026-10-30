@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>gladhand dockyard v26</title>
+<title>gladhand dockyard v27</title>
 <!--
 RED PHONE: trailer backing sim v5
 RED PHONE: v4 written on the Red phone in chat with Claude Opus 5.5, Oct 11 2026 (single van, dock yard, inspection, air lines, magnetic coupling)
@@ -880,7 +880,7 @@ function setGear(g){
   const v=G.s.v;
   if((g==='D'&&v<-.6)||(g==='R'&&v>.6)){penalize('grind',5,'Grind. Stop before you shift',.8);tone(140,.25,'sawtooth',.07,90);return;}
   if(G.gear==='R'&&g==='D'&&G.target)G.pullups++;
-  G.gear=g;tone(g==='R'?520:300,.05,'square',.04);
+  G.gear=g;tone(70,.06,'square',.05,45);
 }
 function toggleLine(which){
   if(!G.s.coupled){msg('Nothing hooked up to connect to');return;}
@@ -934,7 +934,7 @@ function isBroken(o){const r=dstore().obs[o.id];if(!r||r.d<o.hp)return false;ret
 function pruneDmg(){const T=tnow();for(const k in DMG){const st=DMG[k];if(!st)continue;
   for(const id in (st.obs||{})){const r=st.obs[id];if(T-r.t>=repairSecs(r.d))delete st.obs[id];}
   for(const id in (st.crush||{})){const r=st.crush[id];if(T-r.t>=repairSecs(r.d))delete st.crush[id];}
-  st.marks=(st.marks||[]).filter(m=>T-m.t<repairSecs(m.s));st.debris=(st.debris||[]).filter(d=>T-d.t<DEBRIS_SECS);st.wrecks=(st.wrecks||[]).filter(w=>T-w.t<WRECK_SECS);if(st.fires)st.fires=st.fires.filter(f=>T-f.t<1800);if(st.spills)st.spills=st.spills.filter(q=>T-q.t<5400);if(st.spread)st.spread=st.spread.filter(g=>T-g.t<5400);}}
+  st.marks=(st.marks||[]).filter(m=>T-m.t<repairSecs(m.s));st.debris=(st.debris||[]).filter(d=>T-d.t<DEBRIS_SECS);st.wrecks=(st.wrecks||[]).filter(w=>T-w.t<WRECK_SECS);if(st.fires)st.fires=st.fires.filter(f=>T-f.t<1800);if(st.spills)st.spills=st.spills.filter(q=>T-q.t<5400);if(st.spread)st.spread=st.spread.filter(g=>T-g.t<5400);if(st.wallHits)st.wallHits=st.wallHits.filter(w=>T-w.t<2400);}}
 function money(n){n=Math.round(n||0);return n>=1e6?'$'+(n/1e6).toFixed(1)+'M':n>=1e4?'$'+Math.round(n/1e3)+'k':'$'+n.toLocaleString();}
 function addBerms(){const B=30;
   // BLUE PHONE: dirt berm past the fence line so a truck that busts out of the map stops in the desert
@@ -1201,7 +1201,7 @@ function probeGap(fx,fy,ang,hw,maxD,self,noNpc){
     if(hi<best){best=hi;bv=b.vx*c+b.vy*s;}}
   return[best,bv];
 }
-function honk(n){if(nDist(n)<320)tone(300+Math.random()*80,.28,'square',.035);}
+function honk(n){if(nDist(n)<200&&now()>(G.honkU||0)){G.honkU=now()+2.5;tone(220,.3,'sawtooth',.025);tone(277,.3,'sawtooth',.02);}}
 
 // =====================================================================
 // BLUE PHONE: vehicle bodies, speed, pushes
@@ -2413,6 +2413,12 @@ function explode(x,y,power,src){
   if(CITY&&MAP.city&&CITY.canopy){const[a,b,c,d]=CITY.canopy;if(x>a-10&&x<c+10&&y>b-10&&y<d+10)st.canopyDown=Math.round(T);}
   for(const o of OBST){if(o===src||o.type!=='pump'||isBroken(o))continue;const d=Math.hypot(o.cx-x,o.cy-y);if(d>45)continue;
     st.obs[o.id]={d:o.hp+1,t:T,fa:0};setTimeout(()=>explode(o.cx,o.cy,power*.85,o),220+d*9);}
+  {const R=10*Math.sqrt(power),st2=dstore();st2.wallHits=st2.wallHits||[];
+    for(const o of OBST){if(o.hp<9999||Math.abs(o.cx-x)>o.hl+R+2||Math.abs(o.cy-y)>o.hw+R+2)continue;const qx=clamp(x,o.cx-o.hl,o.cx+o.hl),qy=clamp(y,o.cy-o.hw,o.cy+o.hw),d=Math.hypot(qx-x,qy-y);if(d>R)continue;
+      const a=d>.3?Math.atan2(y-qy,x-qx):(Math.abs(x-o.cx)/o.hl>Math.abs(y-o.cy)/o.hw?(x<o.cx?Math.PI:0):(y<o.cy?-Math.PI/2:Math.PI/2));
+      if(BREACH[o.type])breach(o,{cx:qx-Math.cos(a)*2,cy:qy-Math.sin(a)*2,ang:a+Math.PI,hl:2.5,hw:2.5},45*power,a+Math.PI);
+      st2.wallHits.push({x:Math.round(qx*10)/10,y:Math.round(qy*10)/10,a:Math.round(a*100)/100,r:Math.round((4+power*3)*10)/10,t:Math.round(tnow())});addMark(qx,qy,30*power,o);}
+    if(st2.wallHits.length>300)st2.wallHits.splice(0,st2.wallHits.length-300);}
   for(const o of OBST){if(o.hp>=9999||isBroken(o)||o.type==='pump')continue;const d=Math.hypot(o.cx-x,o.cy-y);if(d<30)damageOb(o,(1-d/30)*40*power,o.cx,o.cy,Math.atan2(o.cy-y,o.cx-x));}
   st.cost+=Math.round(60000*power);G.dirty=true;
   if(d0<500)setTimeout(()=>msg(src&&src.label==='fuel pump'?'The gas station went up':'Boom',3),200);
@@ -2422,6 +2428,7 @@ function fireFx(){const st=dstore();if(!st.fires)return;const T=tnow();
     if(parts.length<420){if(Math.random()<.95*k)parts.push({x:f.x+rnd(-7,7)*k,y:f.y+rnd(-7,7)*k,vx:rnd(-3,3),vy:rnd(-5,1),life:rnd(.3,.9),c:[PAL.fire,PAL.amber,PAL.sigY][Math.floor(Math.random()*3)]});
       if(Math.random()<.5*k)smoke([f.x,f.y],PAL.smokeD);}}}
 function drawFires(){const st=dstore(),T=tnow();
+  for(const w of st.wallHits||[]){if(T-w.t>2400||Math.abs(w.x-G.camX)>320||Math.abs(w.y-G.camY)>480)continue;const r=w.r*.9;speck(w.x-r,w.y-r,w.x+r,w.y+r,.85,w.x,w.y,r);}
   if(st.fires)for(const f of st.fires){const age=T-f.t;if(age>1800||Math.abs(f.x-G.camX)>340||Math.abs(f.y-G.camY)>500)continue;const r=14*(1-age/2400);speck(f.x-r,f.y-r,f.x+r,f.y+r,.8,f.x,f.y,r);}
   if(MAP.city&&CITY&&CITY.canopy&&st.canopyDown&&T-st.canopyDown<1800){const[a,b,c,d]=CITY.canopy;fillOBB((a+c)/2,(b+d)/2,0,(c-a)/2,(d-b)/2,PAL.scorch);speck(a,b,c,d,.6);
     fillOBB(a+18,(b+d)/2,.3,20,1,PAL.frame);fillOBB(c-20,(b+d)/2,-.4,18,1,PAL.frame);}}
@@ -2837,6 +2844,7 @@ function shotsTick(dt){
   for(const s of SHOTS){if(s.dead)continue;const steps=Math.ceil(Math.hypot(s.vx,s.vy)*dt/4);
     for(let k=0;k<steps&&!s.dead;k++){s.x+=s.vx*dt/steps;s.y+=s.vy*dt/steps;
       const hn=shotHitNpc(s.x,s.y),ho=hn?null:shotHitOb(s.x,s.y);
+      if(ho&&s.kind==='shell'&&ho.hp<=25){damageOb(ho,80,s.x,s.y,s.a);spawnChunks(s.x,s.y,s.vx,s.vy,8,(MAT[ho.type]||['rubble']).map(q=>PAL[q]),1.4);continue;}
       if(hn||ho){s.dead=true;impact(s,hn,ho);}}
     s.life-=dt;if(s.life<=0&&!s.dead){s.dead=true;if(s.kind==='shell')impact(s,null,null);}}
   SHOTS=SHOTS.filter(s=>!s.dead);
@@ -2846,7 +2854,8 @@ function impact(s,hn,ho){
   if(s.kind==='mg'){
     for(let k=0;k<4&&parts.length<500;k++)parts.push({x,y,vx:rnd(-12,12),vy:rnd(-12,12),life:rnd(.08,.25),c:k%2?PAL.amber:PAL.signW});
     if(hn){const[m,b]=hn;npcDamage(m,x,y,3.5,b);if(m.kind!=='rig')nImpulse(m,s.vx/900*.6,s.vy/900*.6,false);if(m.dead&&!m.burnt){m.burnt=1;if(Math.random()<.35)explode(m.x,m.y,.5,{label:VT[m.type]?VT[m.type].label:'car'});}}
-    else if(ho){if(ho.hp<9999)damageOb(ho,3,x,y,s.a);else if(Math.random()<.3)spawnChunks(x,y,-s.vx,-s.vy,2,(MAT[ho.type]||['concrete2','rubble']).map(q=>PAL[q]),.6);}
+    else if(ho){if(ho.hp<9999)damageOb(ho,3,x,y,s.a);else{if(Math.random()<.3)spawnChunks(x,y,-s.vx,-s.vy,2,(MAT[ho.type]||['concrete2','rubble']).map(q=>PAL[q]),.6);
+      if(Math.random()<.35){const st=dstore();st.wallHits=st.wallHits||[];st.wallHits.push({x:Math.round(x*10)/10,y:Math.round(y*10)/10,a:Math.round((s.a+Math.PI)*100)/100,r:.8,t:Math.round(tnow()),z:2+Math.random()*5});if(st.wallHits.length>300)st.wallHits.shift();G.dirty=true;}}}
     for(const p of PEDS){const d=Math.hypot(p.x-x,p.y-y);if(d<30&&p.dodge<=0){p.dodge=.6;p.dvx=(p.x-x)/(d||1)*16;p.dvy=(p.y-y)/(d||1)*16;}}
     return;}
   // BLUE PHONE: a cannon shell punches a hole in anything big, then goes off
@@ -2931,6 +2940,10 @@ function fpHoleBoxes(add,o,L,h,c,top){
     for(let k=0;k<4;k++){const hx=hsh(Math.round(q.x0*3)+k,Math.round(q.y0*5)),fx=q.x0+(hx%10)/10*(q.x1-q.x0),fy=q.y0+((hx>>4)%10)/10*(q.y1-q.y0);add({cx:fx,cy:fy,ang:hx,hl:.9,hw:.7},0,1.4,k%2?PAL.concrete2:PAL.rubble);}}
 }
 function fpDecals(add,cx,cy){const st=dstore(),T=tnow(),R=150;let n=0;
+  for(const w of st.wallHits||[]){if(Math.abs(w.x-cx)>R||Math.abs(w.y-cy)>R||T-w.t>2400)continue;const c=Math.cos(w.a),s=Math.sin(w.a);
+    if(w.z!=null){add({cx:w.x+c*.12,cy:w.y+s*.12,ang:w.a,hl:.1,hw:w.r},w.z-w.r*.6,w.z+w.r*.6,PAL.dent);continue;}
+    add({cx:w.x+c*.15,cy:w.y+s*.15,ang:w.a,hl:.12,hw:w.r},.3,Math.min(w.r*1.9,14),PAL.scorch);add({cx:w.x+c*.3,cy:w.y+s*.3,ang:w.a,hl:.12,hw:w.r*.55},1,Math.min(w.r*1.3,10),PAL.dent);
+    add({cx:w.x+c*.45,cy:w.y+s*.45,ang:w.a,hl:.12,hw:w.r*.25},1.5,Math.min(w.r*.9,7),PAL.rubble2);}
   for(const m of st.marks||[]){if(Math.abs(m.x-cx)>R||Math.abs(m.y-cy)>R)continue;const p=(T-m.t)/repairSecs(m.s);if(p>=1)continue;const r=clamp(.8+Math.sqrt(m.s)*.4,.8,8)*(1-p*.7);
     add({cx:m.x,cy:m.y,ang:.4,hl:r,hw:r},0,.05,PAL.scorch);add({cx:m.x,cy:m.y,ang:1.2,hl:r*.7,hw:r*.7},0,.07,PAL.rubble2);}
   for(const f of st.fires||[]){if(Math.abs(f.x-cx)>R*1.5||Math.abs(f.y-cy)>R*1.5||T-f.t>1800)continue;const r=14*(1-(T-f.t)/2400);add({cx:f.x,cy:f.y,ang:.3,hl:r,hw:r},0,.05,PAL.scorch);add({cx:f.x,cy:f.y,ang:1.1,hl:r*.75,hw:r*.75},0,.07,PAL.dent);}
@@ -3143,7 +3156,7 @@ function update(dt){
   }
 
   // RED PHONE: backup beeper
-  if(G.gear==='R'&&!G.total&&(Math.abs(s.v)>.1||G.throttle>0||!brk)){beepT-=dt;if(beepT<=0){beepT=1;tone(1100,.42,'square',.035);}}else beepT=0;
+  beepT=0;
 
   truckMarks(dt);
   npcTick(dt);
