@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>gladhand dockyard v33</title>
+<title>gladhand dockyard v34</title>
 <!--
 RED PHONE: trailer backing sim v5
 RED PHONE: v4 written on the Red phone in chat with Claude Opus 5.5, Oct 11 2026 (single van, dock yard, inspection, air lines, magnetic coupling)
@@ -179,6 +179,19 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 #game.land #ctx{bottom:calc(env(safe-area-inset-bottom,0px) + 64px)}
 #game.land #card.low{bottom:calc(env(safe-area-inset-bottom,0px) + 64px)}
 #game.land #card{top:44%}
+@media (max-height:330px){
+#game.land #wheel{width:92px;height:92px}#game.land #wheelTxt{font-size:10px;min-width:60px;padding:0 6px}
+#game.land .gear{width:38px;height:28px;font-size:14px}#game.land #gears{gap:3px}
+#game.land #pBrake{width:56px;height:58px;font-size:12px}#game.land #pGas{width:44px;height:78px;font-size:12px}
+#game.land #speedo{width:54px;height:54px}#game.land .hamb{width:38px;height:38px}#game.land .hose{width:38px;padding:4px 0 2px}#game.land .hose .ring{width:18px;height:18px}
+#game.land #mm{width:82px;height:58px}#game.land:not(.mopen) #mm{top:calc(env(safe-area-inset-top,0px) + 52px)}
+#game.land #rsBox{left:112px}#game.land .rsb{width:40px;height:32px}#game.land #rsTxt{min-width:70px;font-size:12px}
+#game.land #fire{right:170px}#game.land #fire button{width:64px;height:40px;font-size:13px}#game.land #fire button#bWater{width:84px}
+#game.land #chips{grid-template-columns:repeat(5,1fr);gap:3px}#game.land .chip{padding:1px 2px}#game.land .chip .k{font-size:8px}#game.land .chip .v{font-size:11px}
+#game.land #ticker{top:calc(env(safe-area-inset-top,0px) + 96px)}#game.land:not(.mopen) #ticker{top:calc(env(safe-area-inset-top,0px) + 6px)}
+#game.land #mm{top:calc(env(safe-area-inset-top,0px) + 104px)}#game.land #side{top:calc(env(safe-area-inset-top,0px) + 104px);bottom:calc(env(safe-area-inset-bottom,0px) + 96px)}
+#game.land:not(.mopen) #side{top:calc(env(safe-area-inset-top,0px) + 64px)}
+}
 
 #pops{position:absolute;left:0;right:0;top:42%;height:0;pointer-events:none}
 .pop{position:absolute;left:50%;transform:translateX(-50%);font-size:26px;font-weight:900;animation:rise 1.1s ease-out forwards;text-shadow:0 2px 0 #fff}
