@@ -3,7 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>gladhand dockyard v35</title>
+<title>gladhand dockyard v36</title>
+<meta name="description" content="Back trailers into docks, haul loads, put out fires, and wreck an entire town in anything you can find. A pixel truck game for your phone.">
+<meta property="og:title" content="Gladhand Dockyard">
+<meta property="og:description" content="Back trailers into docks, haul loads, put out fires, and wreck an entire town in anything you can find.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<meta name="theme-color" content="#cfcbbf">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23f2c230'/%3E%3Crect x='4' y='12' width='17' height='10' fill='%23f7f5ef' stroke='%233d3a35'/%3E%3Crect x='21' y='14' width='7' height='8' fill='%232a62b0' stroke='%233d3a35'/%3E%3Ccircle cx='9' cy='24' r='2.5' fill='%233d3a35'/%3E%3Ccircle cx='24' cy='24' r='2.5' fill='%233d3a35'/%3E%3C/svg%3E">
 <!--
 RED PHONE: trailer backing sim v5
 RED PHONE: v4 written on the Red phone in chat with Claude Opus 5.5, Oct 11 2026 (single van, dock yard, inspection, air lines, magnetic coupling)
@@ -60,7 +67,7 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 #ibar{height:6px;background:#efe3a8;border-radius:3px;margin-top:10px;overflow:hidden}
 #ibarIn{height:100%;width:0;background:var(--red)}
 .ffoot{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:13px}
-#iskip{background:#fff8d8;border:2px solid #9d8e4a;border-radius:4px;padding:6px 14px;font-family:var(--ui);font-weight:700}
+#iskip{background:#fff8d8;border:2px solid #9d8e4a;border-radius:6px;padding:11px 26px;font-size:16px;min-height:44px;font-family:var(--ui);font-weight:700}
 #stamp{position:absolute;left:50%;top:48%;transform:translate(-50%,-50%) rotate(-11deg) scale(1.7);opacity:0;border:4px solid var(--red);color:var(--red);border-radius:6px;padding:8px 18px;text-align:center;font-family:var(--ui);font-weight:900;background:rgba(251,241,194,.9);transition:transform .22s cubic-bezier(.2,1.7,.4,1),opacity .15s}
 #stamp.on{opacity:1;transform:translate(-50%,-50%) rotate(-11deg) scale(1)}
 #stamp .big{font-size:34px;letter-spacing:.06em}#stamp .sm{font-size:13px;margin-top:2px}
@@ -152,7 +159,7 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 .hamb{pointer-events:auto;width:42px;height:42px;flex:none;background:var(--panel);border:1px solid var(--edge);border-radius:8px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px;padding:0}
 .hamb span{display:block;width:20px;height:3px;background:#2a62b0;border-radius:2px;transition:transform .15s}
 #game.mopen .hamb span:nth-child(1){transform:translateY(7px) rotate(45deg)}#game.mopen .hamb span:nth-child(2){opacity:0}#game.mopen .hamb span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
-#game:not(.mopen) #chips,#game:not(.mopen) #bRig,#game:not(.mopen) #bGuide,#game:not(.mopen) #bZoom,#game:not(.mopen) #bCam,#game:not(.mopen) #bWatch,#game:not(.mopen) #bJobs,#game:not(.mopen) #bSnd{display:none}
+#game:not(.mopen) #chips,#game:not(.mopen) #bRig,#game:not(.mopen) #bGuide,#game:not(.mopen) #bZoom,#game:not(.mopen) #bCam,#game:not(.mopen) #bWatch,#game:not(.mopen) #bJobs,#game:not(.mopen) #bSnd,#game:not(.mopen) #bPause{display:none}
 #game:not(.mopen) #speedo{margin-left:auto}
 #game:not(.mopen) #ticker{top:calc(env(safe-area-inset-top,0px) + 100px)}
 #game:not(.mopen) #mm{top:calc(env(safe-area-inset-top,0px) + 150px)}
@@ -193,6 +200,9 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 #game.land:not(.mopen) #side{top:calc(env(safe-area-inset-top,0px) + 64px)}
 }
 
+/* BLUE PHONE: every tap target is at least 44 tall */
+.sbtn,#game.land .sbtn{min-height:44px;height:44px}.hamb,#game.land .hamb{width:44px;height:44px}.gear,#game.land .gear{min-height:44px;height:44px}#game.land #gears{gap:3px}.rsb,#game.land .rsb{min-height:44px}#game.land #fire button{min-height:44px}
+@media (max-height:330px){#game.land .gear{height:44px;min-height:44px;width:40px}#game.land .hamb{width:44px;height:44px}}
 /* BLUE PHONE: the gauge grid is gone for good. the speedometer stays. everything below lays out as if it never existed */
 #chips{display:none!important}#speedo{margin-left:auto}
 #game #ticker{top:calc(env(safe-area-inset-top,0px) + 100px)}
@@ -283,18 +293,6 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
       <button class="hose emer dim" id="hE" aria-label="Emergency air line"><span class="ring"></span><span class="hl">Red</span></button>
       <button class="hose svc dim" id="hS" aria-label="Service air line"><span class="ring"></span><span class="hl">Blue</span></button>
     </div>
-    <div id="chips">
-      <div class="chip"><span class="k">Hitch</span><span class="v" id="cArt">0°</span></div>
-      <div class="chip"><span class="k">Slip</span><span class="v" id="cSlip">0%</span></div>
-      <div class="chip"><span class="k">Tires</span><span class="v" id="cTire">100%</span></div>
-      <div class="chip"><span class="k">Score</span><span class="v" id="cScore">1000</span></div>
-      <div class="chip"><span class="k">5th wheel</span><span class="v" id="cFifth">Open</span></div>
-      <div class="chip"><span class="k" id="cGoalK">Door</span><span class="v" id="cDoor">None</span></div>
-      <div class="chip"><span class="k">Cab</span><span class="v" id="cCab">100%</span></div>
-      <div class="chip"><span class="k">Trailer</span><span class="v" id="cTrl">100%</span></div>
-      <div class="chip"><span class="k">Damage</span><span class="v" id="cYard">$0</span></div>
-      <div class="chip rdc"><span class="k" id="rdK">Run damage</span><span class="v" id="rdV">$0</span><span class="v rdb" id="rdB">Best $0</span></div>
-    </div>
     <canvas id="speedo"></canvas>
   </div>
 
@@ -312,6 +310,7 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
     <button class="sbtn hide" id="bJobs">Jobs</button>
     <button class="sbtn hide" id="bTow">Hook</button>
     <button class="sbtn" id="bHorn">Horn</button>
+    <button class="sbtn" id="bPause">Pause</button>
     <button class="sbtn on" id="bSnd">Sound</button>
   </div>
 
@@ -453,6 +452,7 @@ const INS=[
 
 let inspTimer=null,inspDone=false;
 function runInspection(){
+  try{if(localStorage.getItem('tbs-insp')){$('insp').style.display='none';inspDone=true;openDispatch();return;}}catch(e){}
   const log=$('ilog'),bar=$('ibarIn'),cnt=$('icnt');log.innerHTML='';inspDone=false;$('stamp').classList.remove('on');
   let i=0;
   const tick=()=>{
@@ -467,7 +467,7 @@ function runInspection(){
   tick();
 }
 function finishInspection(){
-  if(inspDone)return;inspDone=true;clearTimeout(inspTimer);
+  if(inspDone)return;inspDone=true;clearTimeout(inspTimer);lsSet('tbs-insp','1');
   $('stamp').classList.add('on');
   setTimeout(()=>{$('insp').style.display='none';openDispatch();},1300);
 }
@@ -933,7 +933,13 @@ function pop(t,cls){const e=document.createElement('div');e.className='pop '+cls
 function penalize(key,pts,text,cd){const n=now();if(G.cool[key]&&n<G.cool[key])return;G.cool[key]=n+(cd||1.2);G.score-=pts;G.runPen+=pts;pop('-'+pts,'bad');msg(text);G.shake=.25;tone(90,.15,'sawtooth',.1,50);}
 function drain(pts){G.scoreF+=pts;if(G.scoreF>=1){const k=Math.floor(G.scoreF);G.scoreF-=k;G.score-=k;G.runPen+=k;}}
 let BEST={};try{BEST=JSON.parse(localStorage.getItem('tbs-best')||'{}');}catch(e){BEST={};}
-function saveBest(key,val){if(!(BEST[key]>=val)){BEST[key]=val;try{localStorage.setItem('tbs-best',JSON.stringify(BEST));}catch(e){}return true;}return false;}
+// BLUE PHONE: every save goes through here. if the phone storage is full it trims old damage clutter and tries again, then says so once
+function storageRelief(){try{for(const k in DMG){const st=DMG[k];if(!st)continue;st.debris=(st.debris||[]).slice(-150);st.spread=(st.spread||[]).slice(-300);st.marks=(st.marks||[]).slice(-80);st.wallHits=(st.wallHits||[]).slice(-100);if(st.fires)st.fires=st.fires.filter(f=>!f.out);}
+  localStorage.setItem(DMGKEY,JSON.stringify(DMG));}catch(e){}}
+function lsSet(k,v){try{localStorage.setItem(k,v);return true;}catch(e){}
+  try{storageRelief();localStorage.setItem(k,v);return true;}catch(e){}
+  G.saveFails=(G.saveFails||0)+1;if(!lsSet.told){lsSet.told=1;setTimeout(()=>{try{msg('Phone storage for this game is full. Some progress did not save',5);}catch(_){}},200);}return false;}
+function saveBest(key,val){if(!(BEST[key]>=val)){BEST[key]=val;lsSet('tbs-best',JSON.stringify(BEST));return true;}return false;}
 // =====================================================================
 // BLUE PHONE: damage records. every dollar of damage in a run is scored to the vehicle you are driving when it happens.
 // BLUE PHONE: each tractor and each ride keeps its own best run, overall and per map. the tank does not score.
@@ -946,7 +952,7 @@ let drecSaveT=0,drecDirty=false;
 function vehKey(){if(G.alt){const t=G.alt.type;return t==='tank'?null:t;}return G.trk||null;}
 function vehName(k){if(!k)return'';if(TRACTORS[k])return TRACTORS[k].name;if(RIDES[k])return RIDES[k].name;const v=VT[k];return v?v.label.charAt(0).toUpperCase()+v.label.slice(1):k;}
 function drecSave(force){if(!drecDirty&&!force)return;const t=now();if(!force&&t-drecSaveT<2)return;drecSaveT=t;drecDirty=false;
-  try{localStorage.setItem(DREC_KEY,JSON.stringify(DREC));localStorage.setItem(DRUN_KEY,JSON.stringify(DRUNS));}catch(e){}}
+  lsSet(DREC_KEY,JSON.stringify(DREC));lsSet(DRUN_KEY,JSON.stringify(DRUNS));}
 function drecBest(k,map){const r=DREC.veh[k];if(!r)return 0;return map?((r.maps||{})[map]||0):(r.best||0);}
 // BLUE PHONE: every damage cost in the game passes through here. returns the amount so it drops into the old yard cost sums unchanged
 function rd(v){v=Math.round(v||0);if(v>0&&!G.noCredit&&G.runSc)scDamaged();if(!(v>0)||!G.rdmg||G.noCredit)return v;const k=vehKey();if(!k)return v;
@@ -1033,7 +1039,7 @@ const LAYV={city:2};for(const k in DMG){if(DMG[k]&&(DMG[k].lay||0)!==(LAYV[k]||0
 if(DMG.yard&&DMG.yard.ver!==2)delete DMG.yard;
 let chunks=[];
 const tnow=()=>Date.now()/1000;
-function saveDmg(){try{localStorage.setItem(DMGKEY,JSON.stringify(DMG));}catch(e){}}
+function saveDmg(){lsSet(DMGKEY,JSON.stringify(DMG));}
 function dstore(){const k=builtMap||G.map;let st=DMG[k];if(!st)st=DMG[k]={ver:2,lay:LAYV[k]||0};st.obs=st.obs||{};st.crush=st.crush||{};st.marks=st.marks||[];st.debris=st.debris||[];st.wrecks=st.wrecks||[];st.cost=st.cost||0;return st;}
 function repairSecs(d){return Math.min(3*3600,600+d*60);}
 function obsDmg(o){const r=dstore().obs[o.id];if(!r)return 0;const p=(tnow()-r.t)/repairSecs(r.d);return p>=1?0:r.d*(1-p);}
@@ -3189,12 +3195,12 @@ function altMarks(n,dt,prevTh,gas,brk){
     for(const l of[-4.7,4.7])for(const f of[-11,11])skidAt(n.x+c*f-s*l,n.y+s*f+c*l,n.th,1.3,1.6,true);return;}
   const yaw=Math.abs(normA(n.th-prevTh))/Math.max(dt,1e-4),lat=Math.abs(n.v)*yaw,slip=Math.abs(normA(n.th-mv)),dp=DRV[n.type]||DRV.sedan;
   const launch=gas&&G.gear==='D'&&n.v>0&&n.v<38&&dp.acc>=19,hard=brk&&Math.abs(n.v)>24,turn=lat>22||slip>.14;
-  if(launch&&!turn){wheelMarks(n,n.th,n.th,'rear',Math.max(dist,.25));squeal(.7);if(Math.random()<.35)smoke([n.x-Math.cos(n.th)*5,n.y-Math.sin(n.th)*5],PAL.smoke);}
-  else if(turn||hard){wheelMarks(n,mv,mv,'all',Math.max(dist,.2));squeal(1);if(slip>.3&&Math.random()<.4)smoke([n.x,n.y],PAL.smoke);}
+  if(launch&&!turn){wheelMarks(n,n.th,n.th,'rear',Math.max(dist,.25));if(Math.random()<.35)smoke([n.x-Math.cos(n.th)*5,n.y-Math.sin(n.th)*5],PAL.smoke);}
+  else if(turn||hard){wheelMarks(n,mv,mv,'all',Math.max(dist,.2));if(slip>.3&&Math.random()<.4)smoke([n.x,n.y],PAL.smoke);}
 }
 function truckMarks(dt){const s=G.s;if(G.alt)return;const pv=G.skPrev||s.th;G.skPrev=s.th;const yaw=Math.abs(normA(s.th-pv))/Math.max(dt,1e-4),lat=Math.abs(s.v)*yaw,brk=(G.brake||keys.brake)&&Math.abs(s.v)>30;
   if(lat<15&&!brk)return;G.tkA=(G.tkA||0)+Math.abs(s.v)*dt;if(G.tkA<.8)return;G.tkA=0;const c=Math.cos(s.th),sn=Math.sin(s.th);
-  for(const f of TRK.drives)for(const l of[-3.3,3.3])skidAt(s.x+c*f-sn*l,s.y+sn*f+c*l,s.th,1,1,false);for(const l of[-3.3,3.3])skidAt(s.x+c*TRK.L-sn*l,s.y+sn*TRK.L+c*l,s.th+s.delta,1,.8,false);squeal(.8);}
+  for(const f of TRK.drives)for(const l of[-3.3,3.3])skidAt(s.x+c*f-sn*l,s.y+sn*f+c*l,s.th,1,1,false);for(const l of[-3.3,3.3])skidAt(s.x+c*TRK.L-sn*l,s.y+sn*TRK.L+c*l,s.th+s.delta,1,.8,false);}
 
 // =====================================================================
 // BLUE PHONE: damage in the driver view. buildings split around their holes with a lintel over the gap,
@@ -3273,10 +3279,6 @@ function engineTick(){
   engSet(E.lfo.frequency,Math.max(.5,lr));engSet(E.ld.gain,ldp);engSet(E.am.gain,1-ldp*.5);engSet(E.out.gain,on?vol:0,.12);
 }
 // BLUE PHONE: tire screech from filtered noise instead of a beep
-function squeal(k){return;if(now()<(G.sqU||0))return;G.sqU=now()+.16;const a=sndOn&&ac();if(!a)return;
-  const src=a.createBufferSource(),bf=a.createBiquadFilter(),g=a.createGain(),t=a.currentTime;if(!G.sqBuf)G.sqBuf=noiseBuf(a,.4);src.buffer=G.sqBuf;bf.type='bandpass';bf.frequency.value=1400+Math.random()*300;bf.Q.value=6;
-  g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(.05*k,t+.03);g.gain.exponentialRampToValueAtTime(.0001,t+.2);src.connect(bf);bf.connect(g);g.connect(a.destination);src.start(t);src.stop(t+.22);}
-
 function updateSink(name,si,dt,lf){
   const v=G.sink[name]||0;
   if(SURF[si].soft){const slow=Math.abs(G.s.v)<1.5?1.3:.6;G.sink[name]=Math.min(1,v+dt*(.1+.3*lf)*slow);}
@@ -3782,22 +3784,7 @@ function hud(dt){
   G.saveT-=.1;if(G.dirty&&G.saveT<=0){saveDmg();G.dirty=false;G.saveT=1;}
   G.pruneT-=.1;if(G.pruneT<=0){G.pruneT=10;pruneDmg();}
   drawMini();
-  const s=G.s;let worst=0,wsg=0;
-  if(s.coupled)for(let i=0;i<U.length;i++){const r=jointRel(s,i)/DEG;if(Math.abs(r)>Math.abs(worst)){worst=r;wsg=i;}}
-  const ab=Math.abs(worst),ca=$('cArt');
-  ca.textContent=s.coupled?ab.toFixed(0)+'°'+(ab>=1?(worst>0?' L':' R'):'')+(U.length>1&&ab>=1?' #'+(wsg+1):''):'Off';
-  const limD=s.coupled?jointLimit(wsg)/DEG:90;ca.className='v '+(ab>limD*.8?'bad':ab>limD*.5?'warn':'good');
-  const sl=Math.round(G.slide*100),cs=$('cSlip');cs.textContent=G.drag?'Brakes set':sl+'%';cs.className='v '+(G.drag||sl>=100?'bad':sl>60?'warn':'good');
-  const tt=$('cTire');tt.textContent=Math.round(G.tires)+'%';tt.className='v '+(G.tires<35?'bad':G.tires<70?'warn':'good');
-  const sc=$('cScore');sc.textContent=G.score;sc.className='v '+(G.score<500?'bad':G.score<900?'warn':'good');
-  const cf=$('cFifth');cf.textContent=s.coupled?'Locked':'Open';cf.className='v '+(s.coupled?'good':'warn');
-  const cc=$('cCab');cc.textContent=G.total?'Totaled':Math.round(G.cab)+'%';cc.className='v '+(G.cab<35?'bad':G.cab<75?'warn':'good');
-  const ct=$('cTrl');ct.textContent=Math.round(G.trl)+'%';ct.className='v '+(G.trl<35?'bad':G.trl<75?'warn':'good');
-  stripUpdate();
-  const yc=dstore().cost,cy=$('cYard');cy.textContent=money(yc);cy.className='v '+(yc>0?'bad':'good');
-  if(MAP.goal==='docks'){$('cGoalK').textContent='Door';$('cDoor').textContent=G.target?String(G.target.n):'None';}
-  else if(MAP.goal==='miles'){$('cGoalK').textContent='Miles';$('cDoor').textContent=HW.miles.toFixed(1)+(G.hwLenMi?' of '+G.hwLenMi:'');}
-  else{$('cGoalK').textContent='To pad';const dx=clamp(s.x,PAD.x0,PAD.x1)-s.x,dy=clamp(s.y,PAD.y0,PAD.y1)-s.y;$('cDoor').textContent=G.done?'Done':Math.round(Math.hypot(dx,dy))+' ft';}
+  const s=G.s;
   $('hE').classList.toggle('on',G.lineE);$('hS').classList.toggle('on',G.lineS);
   $('hE').classList.toggle('dim',!s.coupled);$('hS').classList.toggle('dim',!s.coupled);
   document.querySelectorAll('.gear').forEach(b=>b.classList.toggle('on',b.dataset.g===G.gear));
@@ -3808,7 +3795,7 @@ function hud(dt){
    if(ft){const td=(G.alt.tur||0)/DEG;$('rsTxt').innerHTML='Water cannon<br>'+(Math.abs(td)<.5?'Forward':(td>0?'Right ':'Left ')+Math.abs(td).toFixed(0)+'°');$('bWater').textContent='Water '+Math.round(G.alt.water==null?100:G.alt.water)+'%';}$('side').classList.toggle('riding',!!G.alt);
    if(tk){const td=(G.alt.tur||0)/DEG;$('rsTxt').innerHTML='Turret<br>'+(Math.abs(td)<.5?'Forward':(td>0?'Right ':'Left ')+Math.abs(td).toFixed(0)+'°');$('bCannon').textContent=G.alt.cd>0?'Loading':'Cannon';}}
   // RED PHONE: context buttons
-  const want=[];if(canPullPin())want.push('pin');if(JR)want.push(JR);if(G.tut&&TUT[G.tut.step]&&TUT[G.tut.step].skip&&now()-G.tut.st>20)want.push('tutskip');
+  const want=[];if(canPullPin())want.push('pin');if(JR)want.push(JR);if(G.tut&&TUT[G.tut.step]&&TUT[G.tut.step].skip&&now()-G.tut.st>20)want.push('tutskip');if(G.tut)want.push('tutleave');
   const key=want.join(','),ctx=$('ctx');
   if(ctx.dataset.k!==key){ctx.dataset.k=key;ctx.innerHTML='';
     for(const w of want){const b=document.createElement('button');
@@ -3816,6 +3803,7 @@ function hud(dt){
       if(w==='mats'){b.className='cbtn';b.textContent='Jerry rig: floor mats under the dualies';b.onclick=jerryRig;}
       if(w==='tape'){b.className='cbtn';b.textContent='Jerry rig: duct tape the sidewall';b.onclick=jerryRig;}
       if(w==='tutskip'){b.className='cbtn';b.textContent='Skip this tutorial step';b.onclick=tutSkip;}
+      if(w==='tutleave'){b.className='cbtn pin';b.textContent='Leave the tutorial';b.onclick=tutLeave;}
       ctx.appendChild(b);}}
   // RED PHONE: ticker hints when no event message is showing
   if(now()>G.msgUntil){
@@ -3875,7 +3863,7 @@ function setupInput(){
   try{const c=localStorage.getItem('tbs-cam');if(CAMS.includes(c))G.cam=c;}catch(e){}
   if(!G.cam)G.cam='auto';$('bCam').textContent=CAML[G.cam];
   $('bCam').addEventListener('click',()=>{G.cam=CAMS[(CAMS.indexOf(G.cam)+1)%CAMS.length];G.camOff={x:0,y:0};$('bCam').textContent=CAML[G.cam];
-    try{localStorage.setItem('tbs-cam',G.cam);}catch(e){}msg({auto:'Camera follows the cab or the rear by gear',cab:'Camera looks ahead of the cab',rear:'Camera looks behind the trailer',whole:'Camera frames the whole rig',driver:'Driver seat. Drag to look around, double tap to look ahead'}[G.cam],2);G.look=0;});
+    lsSet('tbs-cam',G.cam);msg({auto:'Camera follows the cab or the rear by gear',cab:'Camera looks ahead of the cab',rear:'Camera looks behind the trailer',whole:'Camera frames the whole rig',driver:'Driver seat. Drag to look around, double tap to look ahead'}[G.cam],2);G.look=0;});
   // BLUE PHONE: in the driver seat, drag to turn your head
   let fpPid=null,fpLx=0,fpTap=0;fpC.addEventListener('pointerdown',e=>{e.preventDefault();fpPid=e.pointerId;fpLx=e.clientX;try{fpC.setPointerCapture(e.pointerId);}catch(_){ }const n=performance.now();if(n-fpTap<300)G.look=0;fpTap=n;});
   fpC.addEventListener('pointermove',e=>{if(e.pointerId!==fpPid)return;G.look=clamp((G.look||0)-(e.clientX-fpLx)*.006,-1.9,1.9);fpLx=e.clientX;});
@@ -3892,7 +3880,7 @@ function setupInput(){
   const vEnd=e=>{vp.delete(e.pointerId);if(vp.size<2)pinch0=0;};
   view.addEventListener('pointerup',vEnd);view.addEventListener('pointercancel',vEnd);
   $('bHorn').addEventListener('click',()=>{if(hornSwap())return;horn();if(Math.random()<.3)msg('The goat has spoken');});
-  const setSnd=v=>{sndOn=v;try{localStorage.setItem('tbs-snd',v?'1':'0');}catch(e){}$('bSnd').classList.toggle('on',v);$('bMute').textContent=v?'Sound on':'Sound off';if(v)ac();};
+  const setSnd=v=>{sndOn=v;lsSet('tbs-snd',v?'1':'0');$('bSnd').classList.toggle('on',v);$('bMute').textContent=v?'Sound on':'Sound off';if(v)ac();};
   $('bSnd').addEventListener('click',()=>setSnd(!sndOn));$('bMute').addEventListener('click',()=>setSnd(!sndOn));setSnd(sndOn);
   $('bRig').addEventListener('click',openRig);$('bClose').addEventListener('click',()=>$('rig').classList.remove('on'));
   $('bResetTruck').addEventListener('click',()=>{startPose();$('card').classList.remove('on');$('rig').classList.remove('on');msg('Reset. Trailer is back on its legs',3);});
@@ -4010,13 +3998,13 @@ const PROG_KEY='tbs-prog';
 let PROG=null;try{PROG=JSON.parse(localStorage.getItem(PROG_KEY)||'null');}catch(e){PROG=null;}
 if(!PROG||!PROG.unl){let vet=false;try{vet=!!(localStorage.getItem('tbs-pick')||localStorage.getItem('tbs-best')||localStorage.getItem('tbs-damage'));}catch(e){}
   PROG={v:1,tut:vet?1:0,unl:{semi:1}};if(vet)for(const k in RIDES)PROG.unl[k]=1;}
-function progSave(){try{localStorage.setItem(PROG_KEY,JSON.stringify(PROG));}catch(e){}}
+function progSave(){lsSet(PROG_KEY,JSON.stringify(PROG));}
 progSave();
 function unlocked(k){return k==='semi'||!!PROG.unl[k];}
 function undiscovered(n){return(n.kind==='egg'||n.kind==='pk')&&!n.player&&!n.dead&&RIDES[n.type]&&!unlocked(n.type);}
 function unlockRide(k){if(unlocked(k)||!RIDES[k])return false;PROG.unl[k]=1;progSave();
   setTimeout(()=>{msg('Unlocked the '+RIDES[k].name.toLowerCase()+'. Pick it from the launch menu any time',4);pop('Unlocked','good');},1600);return true;}
-function progReset(){PROG={v:1,tut:0,unl:{semi:1}};progSave();G.ride='semi';}
+function progReset(){PROG={v:1,tut:0,ts:0,unl:{semi:1}};progSave();G.ride='semi';}
 function glowRide(n){if(!undiscovered(n))return;const T=VT[n.type];if(!T)return;fillOBB(n.x,n.y,n.th,T.len/2+1.4,T.wid/2+1.4,hueQ(now()*.6));}
 
 // =====================================================================
@@ -4032,10 +4020,11 @@ const TUT=[
   {t:'Docked. Now find a car, stop right next to it and hit Horn to climb in. Follow the ring',ok:()=>!!G.alt,skip:1},
   {t:'That ride is unlocked for the launch menu now. Drive back to your truck, stop beside it and hit Horn to climb out',ok:()=>!G.alt&&G.tutWasIn,skip:1},
 ];
-function startTutorial(){G.tut={step:0,t0:now(),st:now()};G.tutDocked=false;G.tutWasIn=false;G.map='yard';G.cfg='van';G.trk='daycab';G.ride='semi';
-  $('disp').classList.remove('on');$('game').classList.add('on');setupRun();G.tut={step:0,t0:now(),st:now()};msg('Tutorial. Follow the yellow bar at the top',3);}
+function startTutorial(){const rs=PROG.ts|0;G.tut={step:rs,t0:now(),st:now()};G.tutDocked=false;G.tutWasIn=false;G.map='yard';G.cfg='van';G.trk='daycab';G.ride='semi';
+  $('disp').classList.remove('on');$('game').classList.add('on');setupRun();G.tut={step:Math.min(rs,4),t0:now(),st:now()};msg('Tutorial. Follow the yellow bar at the top',3);}
+function tutLeave(){G.tut=null;PROG.tut=1;PROG.ts=0;progSave();openDispatch();}
 function tutTick(){const T=G.tut;if(!T)return;if(G.alt)G.tutWasIn=true;const S=TUT[T.step];if(!S)return;
-  if(S.ok()){T.step++;T.st=now();tone(520,.1,'square',.04);if(T.step>=TUT.length){G.tut=null;PROG.tut=1;progSave();
+  if(S.ok()){T.step++;T.st=now();PROG.ts=T.step<TUT.length?T.step:0;progSave();tone(520,.1,'square',.04);if(T.step>=TUT.length){G.tut=null;PROG.tut=1;progSave();
       showCard('A','Tutorial done','Every ride you find in the world and honk next to gets unlocked for the launch menu. Unfound rides glow. Head to Dispatch from the Rig menu when you are ready.',false);}
     else msg('Nice',1);}}
 function tutSkip(){const T=G.tut;if(!T)return;if(T.step===5)G.tutDocked=true;else if(T.step===6)G.tutWasIn=true,T.step++;else T.step++;T.st=now();}
@@ -4060,7 +4049,7 @@ const SC_KEY='tbs-scores',SQ_KEY='tbs-scoreq';
 let SC={v:1,b:{}};try{const r=JSON.parse(localStorage.getItem(SC_KEY)||'null');if(r&&r.b)SC=r;}catch(e){}
 let SQ=[];try{SQ=JSON.parse(localStorage.getItem(SQ_KEY)||'[]')||[];}catch(e){SQ=[];}
 let scDirty=false,scSaveT=0;
-function scSave(force){if(!scDirty&&!force)return;const t=now();if(!force&&t-scSaveT<2)return;scSaveT=t;scDirty=false;try{localStorage.setItem(SC_KEY,JSON.stringify(SC));localStorage.setItem(SQ_KEY,JSON.stringify(SQ));}catch(e){}}
+function scSave(force){if(!scDirty&&!force)return;const t=now();if(!force&&t-scSaveT<2)return;scSaveT=t;scDirty=false;lsSet(SC_KEY,JSON.stringify(SC));lsSet(SQ_KEY,JSON.stringify(SQ));}
 function scBest(b,k){const e=SC.b[b]&&SC.b[b][k];return e?e.v:null;}
 function better(b,v,old){return old==null||(BOARDS[b].hi?v>old:v<old);}
 function scoreRun(b,k,v,meta){if(!G.runSc)return false;const rk=b+'|'+k,cur=G.runSc[rk];if(cur&&!better(b,v,cur.v))return false;
@@ -4095,13 +4084,6 @@ function scBoard(){const el=$('dBoard'),tabs=$('dTabs');if(!el||!tabs)return;con
   for(const k of ks){const r=E[k],row=document.createElement('div');row.className='dbRow';row.innerHTML='<span class="dbN"></span><span class="dbM"></span><span class="dbV"></span>';
     row.children[0].textContent=scKeyName(sel,k);row.children[1].textContent=sel==='speed'&&r.mph?'over '+r.mph+' mph':(sel==='fire'||sel==='tank'||sel==='speed')&&r.map&&MAPS[r.map]?MAPS[r.map].name:'';
     row.children[2].textContent=scFmt(sel,r.v);el.appendChild(row);}}
-// BLUE PHONE: the strip under the gauges shows the board that fits what you are driving
-function stripUpdate(){const rk=$('rdK'),rv=$('rdV'),rb=$('rdB'),n=G.alt;
-  const set=(k,v,b,good)=>{rk.textContent=k;rv.textContent=v;rv.className='v '+(good?'good':'');rb.textContent=b;};
-  if(n&&n.type==='tank'){const b=scBest('tank','all');set('Tank rounds this run',String(G.rounds||0),'Best '+(b||0),b!=null&&G.rounds>=b);return;}
-  if(n&&n.type==='fire'){const b=scBest('fire','all');set(G.fireDirty?'Fires out, not clean':'Fires out clean',String(G.firesOut||0),'Best '+(b||0),!G.fireDirty&&G.firesOut>0);return;}
-  if(n&&G.spdT>0){const b=scBest('speed',n.type);set('Over '+spdThresh(n.type)+' mph clean',scFmt('speed',G.spdT),'Best '+(b?scFmt('speed',b):'0s'),true);return;}
-  const R=drecRun();if(R.k){set(vehName(R.k)+' run',money(R.cur),'Best '+money(R.best),R.cur>0&&R.cur>=R.best);rv.className='v '+(R.cur>0&&R.cur>=R.best?'good':R.cur>0?'bad':'');}else set('','','',false);}
 window.gdScores.boards=()=>JSON.parse(JSON.stringify(SC));
 {const pend=window.gdScores.pending,mark=window.gdScores.markSent;window.gdScores.pending=()=>pend().concat(SQ.filter(r=>!r.sent));
   window.gdScores.markSent=runs=>{mark(runs.filter(r=>r.veh));const ids=new Set(runs.filter(r=>r.board).map(r=>r.run+'|'+r.board+'|'+r.key));for(const r of SQ)if(ids.has(r.run+'|'+r.board+'|'+r.key))r.sent=true;scDirty=true;scSave(true);};}
@@ -4117,7 +4099,7 @@ function renderDispatch(){
   mk('oRide',RIDES,'ride',G.ride||'semi',k=>unlocked(k),k=>{if(k==='tank'||k==='semi')return'';const b=drecBest(k);return b?'Wrecked '+money(b):'';},'red');
   mk('oTr',TRACTORS,'tr',G.trk,null,k=>{const b=drecBest(k);return b?'Wrecked '+money(b):'';},'red');
   scBoard();
-  mk('oCfg',CFGS,'cfg',G.cfg,k=>CFGS[k].maps.includes(G.map),k=>{const v=BEST[G.map+'|'+k+'|'+(G.map==='yard'?'dock':G.trk)];return v!=null?'Best '+v:'';});
+  mk('oCfg',CFGS,'cfg',G.cfg,k=>CFGS[k].maps.includes(G.map),k=>{const v=BEST[G.map+'|'+k+'|'+(MAPS[G.map].goal==='docks'?'dock':G.trk)];return v!=null?'Best '+v:'';});
   mk('oMap',MAPS,'map',G.map,null,k=>{const d=DMG[k];return k!=='highway'&&d&&d.cost?'Damage '+money(d.cost):'';},'red');
   $('lenWrap').classList.toggle('hide',G.map!=='highway');if(G.map==='highway')mk('oLen',LENS,'len',G.hwLen,null,k=>{const v=BEST['highway|'+k+'|'+G.cfg+'|'+G.trk];return v!=null?'Best '+v:'';});
 }
@@ -4127,10 +4109,11 @@ function pick(kind,k){
   if(kind==='map'){G.map=k;if(!CFGS[G.cfg].maps.includes(k))G.cfg='van';}
   if(kind==='len')G.hwLen=k;
   if(kind==='ride'){if(!unlocked(k)){msg('Locked',1);return;}G.ride=k;}
-  try{localStorage.setItem('tbs-pick',JSON.stringify({trk:G.trk,cfg:G.cfg,map:G.map,hwLen:G.hwLen,ride:G.ride}));}catch(e){}
+  lsSet('tbs-pick',JSON.stringify({trk:G.trk,cfg:G.cfg,map:G.map,hwLen:G.hwLen,ride:G.ride}));
   renderDispatch();
 }
 try{const p=JSON.parse(localStorage.getItem('tbs-pick')||'null');if(p&&TRACTORS[p.trk]&&CFGS[p.cfg]&&MAPS[p.map]&&CFGS[p.cfg].maps.includes(p.map)){G.trk=p.trk;G.cfg=p.cfg;G.map=p.map;}if(p&&LENS[p.hwLen])G.hwLen=p.hwLen;if(p&&RIDES[p.ride]&&unlocked(p.ride))G.ride=p.ride;}catch(e){}
+$('bPause').addEventListener('click',()=>{G.paused=!G.paused;$('bPause').classList.toggle('on',G.paused);$('bPause').textContent=G.paused?'Resume':'Pause';msg(G.paused?'Paused':'Back at it',G.paused?99999:1.5);if(!G.paused)G.msgUntil=0;});
 $('bMenu').addEventListener('click',()=>{const g=$('game');G.menuOpen=!g.classList.contains('mopen');applyMenu();});
 $('bTut').addEventListener('click',()=>{ac();startTutorial();});
 $('bFresh').addEventListener('click',()=>{const b=$('bFresh');if(b.dataset.arm){delete b.dataset.arm;progReset();b.textContent='Start over as a new driver';ac();startTutorial();return;}b.dataset.arm=1;b.textContent='Tap again to lock every ride and replay the tutorial';setTimeout(()=>{delete b.dataset.arm;b.textContent='Start over as a new driver';},4000);});
@@ -4146,7 +4129,7 @@ function setupRun(){
   if(builtMap!==G.map||MAPS[G.map].proc){loadMap(G.map);builtMap=G.map;}else resetCones();
   U=makeUnits(G.cfg);
   G.zoom=MAP.proc?5:G.cfg==='blade'?5:G.cfg==='doubles'||G.cfg==='lowboy'?4:3;G.camOff={x:0,y:0};
-  try{if(!localStorage.getItem('tbs-camtip')){localStorage.setItem('tbs-camtip','1');setTimeout(()=>msg('Drag the map to look around. Pinch to zoom. Double tap to recenter',5),4500);}}catch(e){}
+  try{if(!localStorage.getItem('tbs-camtip')){lsSet('tbs-camtip','1');setTimeout(()=>msg('Drag the map to look around. Pinch to zoom. Double tap to recenter',5),4500);}}catch(e){}
   G.score=1000;G.runPen=0;G.scoreF=0;G.cool={};G.bias=.35;G.lastDoor=null;G.cardUntil=0;parts=[];chunks=[];
   G.alt=null;G.job=null;SHOTS=[];G.mg=false;startPose();resize();setupInput();initWorld();startRide();$('bJobs').classList.toggle('hide',!MAP.jobs);
   {const wu=workUnit(),b1=$('bDump'),b2=$('bDump2');b1.classList.toggle('hide',!wu&&!TRK.bed);b2.classList.toggle('hide',!(TRK.bed&&wu));
@@ -4158,11 +4141,14 @@ function setupRun(){
 }
 function frame(ts){
   const dt=Math.min(.05,last?(ts-last)/1000:.016);last=ts;
-  if(running&&!$('rig').classList.contains('on')){update(dt);render();hud(dt);}
-  else if(running){render();hud(dt);}
-  engineTick();
+  // BLUE PHONE: error boundary. a bug in one frame shows a card with Reset instead of freezing the screen, and the loop keeps going
+  try{if(running&&!G.paused&&!document.hidden&&!$('rig').classList.contains('on')){update(dt);render();hud(dt);}
+    else if(running){render();hud(dt);}
+    engineTick();}
+  catch(e){G.errN=(G.errN||0)+1;console.error(e);if(!G.errCard||now()-G.errCard>8){G.errCard=now();try{showCard('X','Something broke','The game hit a bug. Reset truck or Dispatch from the buttons below gets you going again.',true,true);}catch(_){}}}
   requestAnimationFrame(frame);
 }
+addEventListener('error',e=>{try{console.error(e.error||e.message);}catch(_){}});addEventListener('unhandledrejection',e=>{try{console.error(e.reason);}catch(_){}});
 requestAnimationFrame(frame);
 runInspection();
 
