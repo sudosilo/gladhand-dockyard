@@ -1,50 +1,6 @@
 Gladhand Dockyard changelog
 
-2026-10-30, v36. Error boundary around the game loop with a reset card, saves that trim old clutter and warn when phone storage is full, city best scores show in dispatch, the opening inspection plays once then skips, tutorial progress is saved with a Leave button, every tap target at least 44 tall, a Pause button in the menu, dead tire screech code removed, share text and an icon for links.
-
-2026-10-30, v35. Gauge grid removed, speedometer stays.
-
-2026-10-30, v34. No-cache headers so phones load the new build, tighter controls for short landscape screens.
-
-2026-10-30, v33. Hamburger menu folds gauges and small buttons away, landscape layout.
-
-2026-10-30, v32. Tutorial, ride unlocks by discovery with glow on unfound rides, scoreboards for survival, speed, firefighting, tank rounds, clean docks, fast docks, clean jobs.
-
-2026-10-30, v31. Persistent spreading fire, fire trucks with water cannon, fire call job, south side with cemetery, church, fire station, hospital, radio station.
-
-2026-10-30, v30. Tow trucks get the semi cab view with side mirrors.
-
-2026-10-30, v29. Per vehicle damage records with run tally, dispatch board and backend queue.
-
-2026-10-30, v28. Tank rounds take chunks out of walls, smooth engine sound without blips, tire screech sound off.
-
-2026-10-30, v27. Shells punch through light stuff and blast holes in walls, scorch and bullet pocks on walls, beeps removed.
-
-2026-10-30, v26. Chimes off, continuous engine voices for semi, tank, helicopter, cars and bike, noise tire screech.
-
-2026-10-30, v25. Driver view shows holes, craters, scorch, debris, marks, fire, smoke and flying chunks.
-
-2026-10-30, v24. Tank fire buttons get their own panel, truck only buttons hide while riding, side column scrolls.
-
-2026-10-30, v23. Drive section on the launch menu with every ride, full ride lineup at the city home lot.
-
-2026-10-30, v22. Tank treads, burnout and brake marks, tight turn arcs, drifting and donuts.
-
-2026-10-30, v21. Tank with turret, cannon and machine gun.
-
-2026-10-30, v20. Driver view for every ride, helicopter cockpit, center mirror, your truck visible from outside.
-
-2026-10-30, v19. Raised dump beds catch overpasses and sign gantries on the highway.
-
-2026-10-30, v18. Ride horns, police lights, ride to ride swaps, rollback, wrecker, rotator crane, impound lots, side jobs.
-
-2026-10-30, v17. Dump while rolling to spread a gravel trail, stop to pile, separate truck and pup dump buttons.
-
-2026-10-30, v16. Drive any parked car, home lot ride lineups, flatbed that straps down helicopters and cars, dump truck with pintle and long tongue dump pup.
-
-2026-10-30, v14. And v15: sports car and helicopter rides, gas station explosions, neon signs, street and highway signs, more stores and people, fuel tanker, end dump, loading facilities.
-
-2026-10-30, v13. Yard truck and apocalypse rig tractors.
+2026-10-30, v2026.10.30. Added many rides to drive, including a yard truck, an apocalypse rig, a sports car, a helicopter, tow trucks, a flatbed, a dump truck with a pup, and a tank with a turret, cannon, and machine gun. Added driver views for every ride, ride horns, police lights, and ride to ride swaps. Added a spreading fire with fire trucks and a fire call job, a south side of the city with a cemetery, church, fire station, hospital, and radio station, and gas station explosions. Shells now blast holes in walls, damage is tracked for each vehicle, and a dispatch board shows jobs. Added a tutorial, ride unlocks by discovery, scoreboards, a menu that folds gauges away, a landscape layout, a pause button, and saves that warn when phone storage is full.
 
 2026-10-13, v12. Breachable buildings and big structures, berm dents, breakable block wall ring, detailed driver view vehicles.
 
